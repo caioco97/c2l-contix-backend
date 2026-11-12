@@ -3,6 +3,7 @@ using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Pastas;
+using Contix.Application.Features.Solicitacoes;
 using Contix.Application.Features.Usuarios;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IEmpresaService, EmpresaService>();
         services.AddScoped<IPastaService, PastaService>();
         services.AddScoped<IDocumentoService, DocumentoService>();
+        services.AddScoped<ISolicitacaoService, SolicitacaoService>();
         return services;
     }
 }

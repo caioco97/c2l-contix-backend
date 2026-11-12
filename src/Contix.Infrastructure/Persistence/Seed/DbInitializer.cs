@@ -99,11 +99,41 @@ public sealed class DbInitializer(
         context.Pastas.AddRange(pastas);
         context.Pastas.Add(darf);
         context.Documentos.Add(documento);
+        context.Solicitacoes.AddRange(SolicitacoesDemo(escritorio, empresa, cliente, colaborador, agora));
         await context.SaveChangesAsync(ct);
 
         logger.LogInformation(
             "Dados de demonstração criados. Usuários: admin@contix.dev, colaborador@contix.dev, cliente@contix.dev (senha {Senha})",
             SenhaDemo);
+    }
+
+    private static IEnumerable<Solicitacao> SolicitacoesDemo(
+        Escritorio escritorio, Empresa empresa, Usuario cliente, Usuario colaborador, DateTime agora)
+    {
+        var hoje = DateOnly.FromDateTime(agora);
+
+        var geral = new Solicitacao
+        {
+            TenantId = escritorio.Id, EmpresaId = empresa.Id, Numero = 1, Tipo = TipoSolicitacao.Geral,
+            Departamento = Departamento.Fiscal, Assunto = "Dúvida sobre a apuração do Simples Nacional",
+            Descricao = "Gostaríamos de entender por que o valor do DAS aumentou neste mês.", SolicitanteId = cliente.Id
+        };
+        geral.RegistrarAbertura(agora.AddDays(-2), hoje.AddDays(3));
+        geral.Atribuir(colaborador.Id, colaborador.Nome, hoje.AddDays(3), colaborador.Id, agora.AddDays(-1));
+        geral.AlterarStatus(StatusSolicitacao.EmAnalise, colaborador.Id, false, "Estamos verificando o faturamento acumulado.", agora.AddDays(-1));
+
+        var ferias = new Solicitacao
+        {
+            TenantId = escritorio.Id, EmpresaId = empresa.Id, Numero = 2, Tipo = TipoSolicitacao.AvisoFerias,
+            Departamento = Departamento.Pessoal, Assunto = "Aviso Prévio de Férias - Maria Souza", SolicitanteId = cliente.Id,
+            Dados = $$"""{"empregado":"Maria Souza","periodoAquisitivoInicio":"{{hoje.AddYears(-1):yyyy-MM-dd}}","periodoAquisitivoFim":"{{hoje.AddDays(-1):yyyy-MM-dd}}","dataInicio":"{{hoje.AddDays(35):yyyy-MM-dd}}","dias":30,"abonoPecuniario":false,"adiantamento13":true}"""
+        };
+        ferias.RegistrarAbertura(agora.AddHours(-5), hoje.AddDays(5));
+        ferias.AlterarStatus(StatusSolicitacao.AguardandoCliente, colaborador.Id, false,
+            "Pode confirmar se a Maria vai vender 10 dias (abono pecuniário)?", agora.AddHours(-1));
+
+        escritorio.UltimoNumeroSolicitacao = 2;
+        return [geral, ferias];
     }
 
     private const string PdfExemplo =

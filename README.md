@@ -41,7 +41,11 @@ Em `Development` a API aplica as migrations e o seed automaticamente (`appsettin
 dotnet test
 ```
 
-Os testes de integração usam [Testcontainers](https://dotnet.testcontainers.org/) e precisam do Docker em execução.
+Os testes de integração usam [Testcontainers](https://dotnet.testcontainers.org/) e precisam do Docker em execução. Sem Docker, aponte para um PostgreSQL descartável:
+
+```bash
+CONTIX_TEST_CONNECTION="Host=localhost;Database=contix_tests;Username=contix;Password=contix" dotnet test
+```
 
 ### Migrations
 
@@ -102,6 +106,22 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 | POST | `/empresas/{id}/documentos/{docId}/lido` | autenticado | Marca como lido |
 | DELETE | `/empresas/{id}/documentos/{docId}` | autenticado | Exclusão lógica (cliente só os que enviou) |
 | GET | `/empresas/{id}/documentos/vencimentos?inicio&fim` | autenticado | Calendário de vencimentos (padrão: mês atual) |
+| GET | `/solicitacoes/tipos` | autenticado | Catálogo de tipos de solicitação (departamento, prazo padrão, se exige anexo) |
+| GET | `/solicitacoes` | escritório | Fila de atendimento de todas as empresas. Filtros `empresaId`, `tipo`, `status`, `emAndamento`, `departamento`, `responsavelId`, `semResponsavel`, `atrasadas`, `busca`; `orderBy` = `numero`, `prazo`, `status`, `atualizado`, `createdAt` |
+| GET / POST | `/empresas/{id}/solicitacoes` | autenticado | Solicitações da empresa / abre uma (multipart: `tipo`, `assunto`, `departamento`, `descricao`, `dados` (JSON), `anexos[]`) |
+| GET | `/empresas/{id}/solicitacoes/{solId}` | autenticado | Detalhe com histórico, anexos e `transicoesPermitidas` para o usuário |
+| POST | `/empresas/{id}/solicitacoes/{solId}/comentarios` | autenticado | Comentário com anexos (multipart: `mensagem`, `anexos[]`) |
+| POST | `/empresas/{id}/solicitacoes/{solId}/status` | autenticado | Muda o status (`{ status, mensagem }`); cliente só cancela |
+| PUT | `/empresas/{id}/solicitacoes/{solId}/atribuicao` | escritório | Responsável e prazo (`{ responsavelId, prazo }`) |
+| GET | `/empresas/{id}/solicitacoes/{solId}/anexos/{anexoId}/download` | autenticado | Baixa um anexo |
+
+### Solicitações de serviço
+
+- **Tipos:** Geral, Cadastro de Empregado/Contribuinte/Estagiário, Aviso e Cálculo de Férias, Aviso e Cálculo de Rescisão, Afastamento e Lançamento de Rubricas. Os campos específicos de cada tipo trafegam em `dados` (JSON) e são validados no servidor; erros voltam como `dados.<campo>` (ex.: `dados.cpf`, `dados.lancamentos[0].valor`).
+- **Fluxo:** `Aberta → EmAnalise → AguardandoCliente → Concluida / Cancelada`. O escritório pode reabrir uma finalizada. Pedir algo ao cliente (`AguardandoCliente`) exige mensagem; quando o cliente responde, a solicitação volta sozinha para `EmAnalise`. O cliente só pode cancelar enquanto está `Aberta` ou `AguardandoCliente`.
+- **Histórico:** abertura, comentários, mudanças de status e atribuições ficam registrados com autor e data; anexos ficam ligados ao item do histórico em que foram enviados.
+- **Número:** sequencial por escritório (`#1`, `#2`...), reservado de forma atômica.
+- **Prazo (SLA):** definido pelo prazo padrão do tipo na abertura e ajustável pelo escritório; `atrasada` indica prazo vencido sem conclusão.
 
 ## Configuração
 
@@ -122,4 +142,4 @@ Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migr
 
 ## Próximos passos (backlog)
 
-Recuperação de senha e convites por e-mail, departamentos e responsáveis, auditoria de documentos, envio de documentos por e-mail, notícias, CND, solicitações, NF-e, tarefas e notificações.
+Recuperação de senha e convites por e-mail, departamentos e responsáveis, auditoria de documentos, envio de documentos por e-mail, notícias, CND, NF-e, tarefas e notificações. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.

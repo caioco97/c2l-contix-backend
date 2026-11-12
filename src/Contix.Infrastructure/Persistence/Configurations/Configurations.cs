@@ -140,3 +140,57 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         b.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
     }
 }
+
+public sealed class SolicitacaoConfiguration : IEntityTypeConfiguration<Solicitacao>
+{
+    public void Configure(EntityTypeBuilder<Solicitacao> b)
+    {
+        b.ToTable("solicitacoes");
+        b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(40);
+        b.Property(x => x.Departamento).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Assunto).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Descricao).HasMaxLength(5000);
+        b.Property(x => x.Dados).HasColumnType("jsonb");
+        b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Solicitante).WithMany().HasForeignKey(x => x.SolicitanteId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Responsavel).WithMany().HasForeignKey(x => x.ResponsavelId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Interacoes).WithOne().HasForeignKey(x => x.SolicitacaoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(x => x.Anexos).WithOne().HasForeignKey(x => x.SolicitacaoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<Escritorio>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.TenantId, x.Numero }).IsUnique();
+        b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Status });
+        b.HasIndex(x => new { x.TenantId, x.ResponsavelId });
+    }
+}
+
+public sealed class SolicitacaoInteracaoConfiguration : IEntityTypeConfiguration<SolicitacaoInteracao>
+{
+    public void Configure(EntityTypeBuilder<SolicitacaoInteracao> b)
+    {
+        b.ToTable("solicitacao_interacoes");
+        // Id gerado no domínio: sem isso o EF trataria itens novos adicionados à coleção como existentes.
+        b.Property(x => x.Id).ValueGeneratedNever();
+        b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.StatusAnterior).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.StatusNovo).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Mensagem).HasMaxLength(5000);
+        b.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.AutorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Anexos).WithOne().HasForeignKey(x => x.InteracaoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.SolicitacaoId, x.CreatedAt });
+    }
+}
+
+public sealed class SolicitacaoAnexoConfiguration : IEntityTypeConfiguration<SolicitacaoAnexo>
+{
+    public void Configure(EntityTypeBuilder<SolicitacaoAnexo> b)
+    {
+        b.ToTable("solicitacao_anexos");
+        b.Property(x => x.Id).ValueGeneratedNever();
+        b.Property(x => x.NomeArquivo).HasMaxLength(255).IsRequired();
+        b.Property(x => x.ContentType).HasMaxLength(150).IsRequired();
+        b.Property(x => x.StorageKey).HasMaxLength(500).IsRequired();
+        b.HasOne(x => x.EnviadoPor).WithMany().HasForeignKey(x => x.EnviadoPorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.SolicitacaoId);
+    }
+}

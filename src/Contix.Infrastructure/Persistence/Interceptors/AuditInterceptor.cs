@@ -47,7 +47,7 @@ public sealed class AuditInterceptor(ICurrentUser currentUser, IDateTimeProvider
 
             if (entry.Entity is BaseEntity baseEntity)
             {
-                if (entry.State == EntityState.Added) baseEntity.CreatedAt = agora;
+                if (entry.State == EntityState.Added && baseEntity.CreatedAt == default) baseEntity.CreatedAt = agora;
                 else if (entry.State == EntityState.Modified) baseEntity.UpdatedAt = agora;
             }
         }
