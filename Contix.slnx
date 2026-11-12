@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Contix.Api/Contix.Api.csproj" />
+    <Project Path="src/Contix.Application/Contix.Application.csproj" />
+    <Project Path="src/Contix.Domain/Contix.Domain.csproj" />
+    <Project Path="src/Contix.Infrastructure/Contix.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Contix.IntegrationTests/Contix.IntegrationTests.csproj" />
+    <Project Path="tests/Contix.UnitTests/Contix.UnitTests.csproj" />
+  </Folder>
+</Solution>

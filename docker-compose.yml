@@ -1,0 +1,44 @@
+name: contix
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-contix}
+      POSTGRES_USER: ${POSTGRES_USER:-contix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contix}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__Default: Host=db;Port=5432;Database=${POSTGRES_DB:-contix};Username=${POSTGRES_USER:-contix};Password=${POSTGRES_PASSWORD:-contix}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Defina JWT_SIGNING_KEY no arquivo .env}
+      Cors__AllowedOrigins__0: ${FRONTEND_URL:-http://localhost:5173}
+      Database__MigrateOnStartup: ${DB_MIGRATE_ON_STARTUP:-true}
+      Database__SeedDemoData: ${DB_SEED_DEMO:-true}
+      Swagger__Enabled: ${SWAGGER_ENABLED:-true}
+    ports:
+      - "${API_PORT:-5080}:8080"
+    volumes:
+      - storage:/app/storage
+
+volumes:
+  pgdata:
+  storage:
