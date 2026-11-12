@@ -194,3 +194,60 @@ public sealed class SolicitacaoAnexoConfiguration : IEntityTypeConfiguration<Sol
         b.HasIndex(x => x.SolicitacaoId);
     }
 }
+
+public sealed class TokenRedefinicaoSenhaConfiguration : IEntityTypeConfiguration<TokenRedefinicaoSenha>
+{
+    public void Configure(EntityTypeBuilder<TokenRedefinicaoSenha> b)
+    {
+        b.ToTable("tokens_redefinicao_senha");
+        b.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
+        b.HasIndex(x => x.TokenHash).IsUnique();
+        b.HasIndex(x => x.UsuarioId);
+        b.Property(x => x.CriadoPorIp).HasMaxLength(64);
+        b.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class NotificacaoConfiguration : IEntityTypeConfiguration<Notificacao>
+{
+    public void Configure(EntityTypeBuilder<Notificacao> b)
+    {
+        b.ToTable("notificacoes");
+        b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(40);
+        b.Property(x => x.Titulo).HasMaxLength(300).IsRequired();
+        b.Property(x => x.Mensagem).HasMaxLength(2000).IsRequired();
+        b.Property(x => x.Link).HasMaxLength(500);
+        b.Ignore(x => x.Lida);
+        b.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<Escritorio>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.UsuarioId, x.LidaEm, x.CreatedAt });
+    }
+}
+
+public sealed class PreferenciaNotificacaoConfiguration : IEntityTypeConfiguration<PreferenciaNotificacao>
+{
+    public void Configure(EntityTypeBuilder<PreferenciaNotificacao> b)
+    {
+        b.ToTable("preferencias_notificacao");
+        b.HasKey(x => new { x.UsuarioId, x.Tipo });
+        b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(40);
+        b.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class EmailPendenteConfiguration : IEntityTypeConfiguration<EmailPendente>
+{
+    public void Configure(EntityTypeBuilder<EmailPendente> b)
+    {
+        b.ToTable("emails_pendentes");
+        b.Property(x => x.Para).HasMaxLength(200).IsRequired();
+        b.Property(x => x.NomePara).HasMaxLength(150);
+        b.Property(x => x.Assunto).HasMaxLength(300).IsRequired();
+        b.Property(x => x.CorpoHtml).IsRequired();
+        b.Property(x => x.CorpoTexto).IsRequired();
+        b.Property(x => x.UltimoErro).HasMaxLength(1000);
+        b.Ignore(x => x.Desistiu);
+        // Fila: apenas não enviados, por ordem de próxima tentativa.
+        b.HasIndex(x => x.ProximaTentativaEm).HasFilter("enviado_em IS NULL");
+    }
+}

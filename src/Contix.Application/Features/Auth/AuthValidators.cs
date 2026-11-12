@@ -32,3 +32,17 @@ public sealed class RegistrarEscritorioRequestValidator : AbstractValidator<Regi
         RuleFor(x => x.Senha).Senha();
     }
 }
+
+public sealed class EsqueciSenhaRequestValidator : AbstractValidator<EsqueciSenhaRequest>
+{
+    public EsqueciSenhaRequestValidator() => RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(200);
+}
+
+public sealed class RedefinirSenhaRequestValidator : AbstractValidator<RedefinirSenhaRequest>
+{
+    public RedefinirSenhaRequestValidator()
+    {
+        RuleFor(x => x.Token).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.NovaSenha).Senha();
+    }
+}

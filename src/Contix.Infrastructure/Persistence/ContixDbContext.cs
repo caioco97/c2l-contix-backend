@@ -20,6 +20,10 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Solicitacao> Solicitacoes => Set<Solicitacao>();
     public DbSet<SolicitacaoInteracao> SolicitacaoInteracoes => Set<SolicitacaoInteracao>();
     public DbSet<SolicitacaoAnexo> SolicitacaoAnexos => Set<SolicitacaoAnexo>();
+    public DbSet<TokenRedefinicaoSenha> TokensRedefinicaoSenha => Set<TokenRedefinicaoSenha>();
+    public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
+    public DbSet<PreferenciaNotificacao> PreferenciasNotificacao => Set<PreferenciaNotificacao>();
+    public DbSet<EmailPendente> EmailsPendentes => Set<EmailPendente>();
     public DbSet<Noticia> Noticias => Set<Noticia>();
     public DbSet<NoticiaEmpresa> NoticiaEmpresas => Set<NoticiaEmpresa>();
     public DbSet<NoticiaLeitura> NoticiaLeituras => Set<NoticiaLeitura>();

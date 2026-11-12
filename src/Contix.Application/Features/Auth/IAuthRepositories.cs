@@ -9,3 +9,9 @@ public interface IRefreshTokenRepository : IRepository<RefreshToken>
     Task<IReadOnlyList<RefreshToken>> ListarAtivosDaFamiliaAsync(Guid familia, DateTime agora, CancellationToken ct = default);
     Task<IReadOnlyList<RefreshToken>> ListarAtivosDoUsuarioAsync(Guid usuarioId, DateTime agora, CancellationToken ct = default);
 }
+
+public interface ITokenRedefinicaoSenhaRepository : IRepository<TokenRedefinicaoSenha>
+{
+    Task<TokenRedefinicaoSenha?> GetByHashAsync(string tokenHash, CancellationToken ct = default);
+    Task<IReadOnlyList<TokenRedefinicaoSenha>> ListarValidosDoUsuarioAsync(Guid usuarioId, DateTime agora, CancellationToken ct = default);
+}

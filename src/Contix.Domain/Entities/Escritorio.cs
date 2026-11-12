@@ -14,6 +14,8 @@ public class Escritorio : BaseEntity
     public Endereco? Endereco { get; set; }
     public string? LogoUrl { get; set; }
     public bool Ativo { get; set; } = true;
+    /// <summary>Quantos dias antes do vencimento de um documento o cliente é lembrado (0 desativa).</summary>
+    public int DiasLembreteVencimento { get; set; } = 3;
     /// <summary>Último número de solicitação emitido (sequência por escritório).</summary>
     public int UltimoNumeroSolicitacao { get; set; }
 }

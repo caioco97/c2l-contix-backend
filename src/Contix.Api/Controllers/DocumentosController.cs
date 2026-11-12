@@ -1,5 +1,7 @@
+using Contix.Api.Infrastructure;
 using Contix.Application.Common.Models;
 using Contix.Application.Features.Documentos;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Contix.Api.Controllers;
@@ -76,6 +78,13 @@ public sealed class DocumentosController(IDocumentoService service) : ApiControl
     }
 
     /// <summary>Documentos com vencimento no período (calendário de vencimentos). Padrão: mês atual.</summary>
+    /// <summary>Envia documentos ao cliente: os usuários da empresa recebem notificação e e-mail com link para o portal.</summary>
+    [HttpPost("enviar")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(EnvioDocumentosResultado), StatusCodes.Status200OK)]
+    public async Task<EnvioDocumentosResultado> EnviarAoCliente(Guid empresaId, EnviarDocumentosRequest request, CancellationToken ct) =>
+        new(await service.EnviarAoClienteAsync(empresaId, request, ct));
+
     [HttpGet("vencimentos")]
     [ProducesResponseType(typeof(IReadOnlyList<VencimentoDto>), StatusCodes.Status200OK)]
     public Task<IReadOnlyList<VencimentoDto>> Vencimentos(
@@ -87,6 +96,8 @@ public sealed class DocumentosController(IDocumentoService service) : ApiControl
         return service.ListarVencimentosAsync(empresaId, de, ate, ct);
     }
 }
+
+public sealed record EnvioDocumentosResultado(int Destinatarios);
 
 public sealed class UploadDocumentosForm
 {

@@ -8,6 +8,10 @@ public sealed record LoginRequest(string Email, string Senha);
 
 public sealed record RefreshTokenRequest(string RefreshToken);
 
+public sealed record EsqueciSenhaRequest(string Email);
+
+public sealed record RedefinirSenhaRequest(string Token, string NovaSenha);
+
 /// <summary>Onboarding: cria o escritório e seu primeiro administrador.</summary>
 public sealed record RegistrarEscritorioRequest(
     string RazaoSocial,

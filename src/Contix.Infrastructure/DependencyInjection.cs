@@ -5,10 +5,13 @@ using Contix.Application.Features.Certidoes;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
+using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Noticias;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Usuarios;
 using Contix.Infrastructure.Common;
+using Contix.Infrastructure.Email;
+using Contix.Infrastructure.Jobs;
 using Contix.Infrastructure.Persistence;
 using Contix.Infrastructure.Persistence.Interceptors;
 using Contix.Infrastructure.Persistence.Repositories;
@@ -30,6 +33,11 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddOptions<FileStorageOptions>().Bind(configuration.GetSection(FileStorageOptions.Secao));
         services.AddOptions<DocumentoOptions>().Bind(configuration.GetSection(DocumentoOptions.Secao));
+        services.AddOptions<NotificacaoOptions>().Bind(configuration.GetSection(NotificacaoOptions.Secao));
+        services.AddOptions<LembreteVencimentoOptions>().Bind(configuration.GetSection(LembreteVencimentoOptions.Secao));
+        services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.Secao))
+            .Validate(o => o.Provider is "Smtp" or "Log", "Email:Provider deve ser \"Smtp\" ou \"Log\".")
+            .ValidateOnStart();
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
         services.AddScoped<AuditInterceptor>();
@@ -52,12 +60,24 @@ public static class DependencyInjection
         services.AddScoped<IPastaRepository, PastaRepository>();
         services.AddScoped<IDocumentoRepository, DocumentoRepository>();
         services.AddScoped<ISolicitacaoRepository, SolicitacaoRepository>();
+        services.AddScoped<INotificacaoRepository, NotificacaoRepository>();
+        services.AddScoped<ITokenRedefinicaoSenhaRepository, TokenRedefinicaoSenhaRepository>();
         services.AddScoped<INoticiaRepository, NoticiaRepository>();
         services.AddScoped<ICertidaoRepository, CertidaoRepository>();
 
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
+
+        // E-mail: caixa de saída gravada junto com a transação e enviada em segundo plano.
+        services.AddScoped<IEmailQueue, EmailQueue>();
+        if (configuration.GetValue<string>($"{EmailOptions.Secao}:Provider") == "Smtp")
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        else
+            services.AddSingleton<IEmailSender, LogEmailSender>();
+        services.AddSingleton<EmailOutboxProcessor>();
+        services.AddHostedService<EmailOutboxJob>();
+        services.AddHostedService<LembreteVencimentoJob>();
 
         services.AddScoped<DbInitializer>();
         services.AddHealthChecks().AddDbContextCheck<ContixDbContext>("database");

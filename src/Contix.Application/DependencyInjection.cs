@@ -3,6 +3,7 @@ using Contix.Application.Features.Certidoes;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
+using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Noticias;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Solicitacoes;
@@ -27,6 +28,9 @@ public static class DependencyInjection
         services.AddScoped<IPastaService, PastaService>();
         services.AddScoped<IDocumentoService, DocumentoService>();
         services.AddScoped<ISolicitacaoService, SolicitacaoService>();
+        services.AddScoped<INotificador, Notificador>();
+        services.AddScoped<INotificacaoService, NotificacaoService>();
+        services.AddScoped<ILembreteVencimentoService, LembreteVencimentoService>();
         services.AddScoped<INoticiaService, NoticiaService>();
         services.AddScoped<ICertidaoService, CertidaoService>();
         return services;

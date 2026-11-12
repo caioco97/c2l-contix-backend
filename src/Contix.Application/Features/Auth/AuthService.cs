@@ -1,11 +1,14 @@
 using Contix.Application.Common.Abstractions;
 using Contix.Application.Common.Exceptions;
 using Contix.Application.Features.Escritorios;
+using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Usuarios;
 using Contix.Domain.Entities;
 using Contix.Domain.Enums;
+using Contix.Domain.Exceptions;
 using Contix.Domain.ValueObjects;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Contix.Application.Features.Auth;
 
@@ -13,6 +16,9 @@ public sealed class AuthService(
     IUsuarioRepository usuarios,
     IEscritorioRepository escritorios,
     IRefreshTokenRepository refreshTokens,
+    ITokenRedefinicaoSenhaRepository tokensRedefinicao,
+    IEmailQueue emails,
+    IOptions<NotificacaoOptions> notificacaoOptions,
     ITokenService tokenService,
     IPasswordHasher passwordHasher,
     IUnitOfWork unitOfWork,
@@ -131,6 +137,75 @@ public sealed class AuthService(
         logger.LogInformation("Escritório {EscritorioId} registrado", escritorio.Id);
         return response;
     }
+
+    public async Task SolicitarRedefinicaoSenhaAsync(EsqueciSenhaRequest request, CancellationToken ct = default)
+    {
+        var agora = clock.UtcNow;
+        var usuario = await usuarios.GetByEmailIgnorandoTenantAsync(request.Email, ct);
+        if (usuario is null || !usuario.Ativo || usuario.Escritorio is not { Ativo: true })
+        {
+            logger.LogInformation("Pedido de redefinição de senha para e-mail sem conta ativa");
+            return;
+        }
+
+        // Apenas o link mais recente vale.
+        foreach (var anterior in await tokensRedefinicao.ListarValidosDoUsuarioAsync(usuario.Id, agora, ct))
+            anterior.Invalidar(agora);
+
+        var opcoes = notificacaoOptions.Value;
+        var validade = TimeSpan.FromMinutes(opcoes.ValidadeLinkRedefinicaoMinutos);
+        var token = tokenService.GerarTokenOpaco();
+        await tokensRedefinicao.AddAsync(new TokenRedefinicaoSenha
+        {
+            UsuarioId = usuario.Id,
+            TokenHash = token.Hash,
+            ExpiraEm = agora.Add(validade),
+            CriadoPorIp = currentUser.IpAddress
+        }, ct);
+
+        var escritorio = usuario.Escritorio;
+        var link = EmailTemplates.Url(opcoes.UrlFrontend, $"/redefinir-senha?token={Uri.EscapeDataString(token.Token)}");
+        await emails.EnfileirarAsync(EmailTemplates.Montar(
+            usuario.Email, usuario.Nome, "Redefinição de senha do Contix",
+            new EmailTemplates.Marca(escritorio.NomeFantasia ?? escritorio.RazaoSocial, escritorio.LogoUrl),
+            "Redefinição de senha",
+            ["Recebemos um pedido para redefinir a senha da sua conta no Contix. Clique no botão abaixo para criar uma nova senha.",
+             $"O link vale por {FormatarValidade(validade)} e só pode ser usado uma vez."],
+            "Criar nova senha", link,
+            "Se você não fez este pedido, ignore este e-mail: sua senha atual continua valendo."), ct);
+
+        await unitOfWork.SaveChangesAsync(ct);
+        logger.LogInformation("Link de redefinição de senha enviado para o usuário {UsuarioId}", usuario.Id);
+    }
+
+    public async Task RedefinirSenhaAsync(RedefinirSenhaRequest request, CancellationToken ct = default)
+    {
+        var agora = clock.UtcNow;
+        var token = await tokensRedefinicao.GetByHashAsync(tokenService.HashToken(request.Token), ct);
+        if (token is null || !token.EstaValido(agora))
+            throw new DomainException("Link de redefinição inválido ou expirado.");
+
+        var usuario = await usuarios.GetByIdIgnorandoTenantAsync(token.UsuarioId, ct);
+        if (usuario is null || !usuario.Ativo)
+            throw new DomainException("Link de redefinição inválido ou expirado.");
+
+        token.MarcarComoUsado(agora);
+        usuario.RedefinirSenha(passwordHasher.Hash(request.NovaSenha));
+
+        // Encerra as sessões abertas: quem tinha a senha antiga perde o acesso.
+        foreach (var t in await refreshTokens.ListarAtivosDoUsuarioAsync(usuario.Id, agora, ct))
+            t.Revogar(agora, "Senha redefinida");
+        foreach (var outro in await tokensRedefinicao.ListarValidosDoUsuarioAsync(usuario.Id, agora, ct))
+            if (outro.Id != token.Id) outro.Invalidar(agora);
+
+        await unitOfWork.SaveChangesAsync(ct);
+        logger.LogInformation("Senha redefinida para o usuário {UsuarioId}", usuario.Id);
+    }
+
+    private static string FormatarValidade(TimeSpan t) =>
+        t.TotalMinutes < 60 ? $"{(int)t.TotalMinutes} minutos"
+        : t.TotalHours == 1 ? "1 hora"
+        : $"{(int)t.TotalHours} horas";
 
     public async Task<UsuarioAutenticadoDto> ObterUsuarioAtualAsync(CancellationToken ct = default)
     {

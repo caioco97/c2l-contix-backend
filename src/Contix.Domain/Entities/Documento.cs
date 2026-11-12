@@ -22,6 +22,8 @@ public class Documento : TenantEntity
     public DateOnly? Competencia { get; set; }
     public DateOnly? DataVencimento { get; set; }
     public DateTime PublicadoEm { get; set; }
+    /// <summary>Quando o lembrete de vencimento foi gerado (evita lembrar duas vezes).</summary>
+    public DateTime? LembreteVencimentoEnviadoEm { get; set; }
 
     public Guid AdicionadoPorId { get; set; }
     public Usuario? AdicionadoPor { get; set; }

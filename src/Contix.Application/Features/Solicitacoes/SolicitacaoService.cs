@@ -4,6 +4,7 @@ using Contix.Application.Common.Exceptions;
 using Contix.Application.Common.Models;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
+using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Usuarios;
 using Contix.Domain.Entities;
 using Contix.Domain.Enums;
@@ -34,6 +35,8 @@ public sealed class SolicitacaoService(
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     IDateTimeProvider clock,
+    INotificador notificador,
+    INotificacaoRepository destinatarios,
     IValidator<AbrirSolicitacaoCommand> abrirValidator,
     IValidator<ComentarSolicitacaoCommand> comentarValidator,
     ILogger<SolicitacaoService> logger) : ISolicitacaoService
@@ -86,6 +89,12 @@ public sealed class SolicitacaoService(
         await SalvarComAnexosAsync(solicitacao, abertura, command.Anexos, async () =>
         {
             await solicitacoes.AddAsync(solicitacao, ct);
+            var alvo = currentUser.EhCliente
+                ? await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct)
+                : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ct);
+            await NotificarAsync(solicitacao, alvo, TipoNotificacao.NovaSolicitacao,
+                $"Nova solicitação #{solicitacao.Numero}: {solicitacao.Assunto}",
+                $"{tipo.Nome} aberta para a empresa {empresa.NomeFantasia ?? empresa.RazaoSocial}.", ct);
         }, ct);
 
         logger.LogInformation("Solicitação {Numero} ({Tipo}) aberta na empresa {EmpresaId} pelo usuário {UsuarioId}",
@@ -101,7 +110,11 @@ public sealed class SolicitacaoService(
 
         var interacao = solicitacao.Comentar(currentUser.RequireUserId(), currentUser.EhCliente, command.Mensagem,
             command.Anexos.Count > 0, clock.UtcNow);
-        await SalvarComAnexosAsync(solicitacao, interacao, command.Anexos, () => Task.CompletedTask, ct);
+        await SalvarComAnexosAsync(solicitacao, interacao, command.Anexos, () => NotificarAtualizacaoAsync(solicitacao,
+            $"Nova mensagem na solicitação #{solicitacao.Numero}",
+            string.IsNullOrWhiteSpace(command.Mensagem)
+                ? $"Foram adicionados anexos à solicitação \"{solicitacao.Assunto}\"."
+                : $"\"{Resumir(command.Mensagem)}\" — solicitação \"{solicitacao.Assunto}\".", ct), ct);
         return await ObterAsync(empresaId, solicitacaoId, ct);
     }
 
@@ -112,6 +125,10 @@ public sealed class SolicitacaoService(
         var anterior = solicitacao.Status;
 
         solicitacao.AlterarStatus(request.Status, currentUser.RequireUserId(), currentUser.EhCliente, request.Mensagem, clock.UtcNow);
+        await NotificarAtualizacaoAsync(solicitacao,
+            $"Solicitação #{solicitacao.Numero}: {NomeStatus(request.Status)}",
+            $"A solicitação \"{solicitacao.Assunto}\" passou de {NomeStatus(anterior)} para {NomeStatus(request.Status)}." +
+            (string.IsNullOrWhiteSpace(request.Mensagem) ? "" : $" Mensagem: {Resumir(request.Mensagem)}"), ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         logger.LogInformation("Solicitação {SolicitacaoId}: status {Anterior} -> {Novo} pelo usuário {UsuarioId}",
@@ -135,7 +152,16 @@ public sealed class SolicitacaoService(
             nome = responsavel.Nome;
         }
 
+        var responsavelAnterior = solicitacao.ResponsavelId;
         solicitacao.Atribuir(request.ResponsavelId, nome, request.Prazo, currentUser.RequireUserId(), clock.UtcNow);
+        if (request.ResponsavelId is { } novo && novo != responsavelAnterior)
+        {
+            var alvo = await destinatarios.ListarPorIdsAsync(solicitacao.TenantId, [novo], ct);
+            await NotificarAsync(solicitacao, alvo, TipoNotificacao.SolicitacaoAtualizada,
+                $"Solicitação #{solicitacao.Numero} atribuída a você",
+                $"\"{solicitacao.Assunto}\" — empresa {solicitacao.Empresa?.NomeFantasia ?? solicitacao.Empresa?.RazaoSocial}." +
+                (request.Prazo is { } prazo ? $" Prazo: {prazo:dd/MM/yyyy}." : ""), ct);
+        }
         await unitOfWork.SaveChangesAsync(ct);
         return await ObterAsync(empresaId, solicitacaoId, ct);
     }
@@ -150,6 +176,38 @@ public sealed class SolicitacaoService(
     }
 
     /* ---------- Auxiliares ---------- */
+
+    /// <summary>
+    /// Avisa os participantes (solicitante e responsável). Quando o cliente interage numa solicitação
+    /// ainda sem responsável, avisa a equipe do escritório.
+    /// </summary>
+    private async Task NotificarAtualizacaoAsync(Solicitacao s, string titulo, string mensagem, CancellationToken ct)
+    {
+        var ids = new List<Guid> { s.SolicitanteId };
+        if (s.ResponsavelId is { } r) ids.Add(r);
+        var alvo = (await destinatarios.ListarPorIdsAsync(s.TenantId, ids, ct)).ToList();
+        if (currentUser.EhCliente && s.ResponsavelId is null)
+            alvo.AddRange(await destinatarios.ListarEquipeDoEscritorioAsync(s.TenantId, ct));
+        await NotificarAsync(s, alvo, TipoNotificacao.SolicitacaoAtualizada, titulo, mensagem, ct);
+    }
+
+    private Task NotificarAsync(Solicitacao s, IEnumerable<Destinatario> alvo, TipoNotificacao tipo, string titulo, string mensagem, CancellationToken ct) =>
+        notificador.NotificarAsync(s.TenantId, alvo, new EventoNotificacao(tipo, titulo, mensagem, s.EmpresaId, s.Id,
+            d => d.EhDoEscritorio ? $"/atendimento/{s.EmpresaId}/{s.Id}" : $"/portal/solicitacoes/{s.Id}",
+            "Ver solicitação"), ct);
+
+    private static string NomeStatus(StatusSolicitacao status) => status switch
+    {
+        StatusSolicitacao.Aberta => "Aberta",
+        StatusSolicitacao.EmAnalise => "Em análise",
+        StatusSolicitacao.AguardandoCliente => "Aguardando cliente",
+        StatusSolicitacao.Concluida => "Concluída",
+        StatusSolicitacao.Cancelada => "Cancelada",
+        _ => status.ToString()
+    };
+
+    private static string Resumir(string texto) =>
+        texto.Trim().Length <= 200 ? texto.Trim() : texto.Trim()[..197] + "...";
 
     private async Task<Solicitacao> CarregarAsync(Guid empresaId, Guid solicitacaoId, CancellationToken ct) =>
         await solicitacoes.ObterCompletaAsync(empresaId, solicitacaoId, ct)

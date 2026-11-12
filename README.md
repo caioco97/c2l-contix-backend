@@ -16,6 +16,7 @@ docker compose up -d --build
 - API: http://localhost:5080
 - Swagger: http://localhost:5080/swagger
 - Health check: http://localhost:5080/health
+- Mailpit (caixa de entrada dos e-mails de desenvolvimento): http://localhost:8025
 
 Com `DB_SEED_DEMO=true` são criados um escritório, uma empresa ("Empresa Demonstração Ltda") com pastas padrão e um documento com vencimento no mês atual, além dos usuários abaixo (senha `Contix@123`):
 
@@ -168,6 +169,21 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
 
+### Recuperação de senha
+
+- `POST /api/v1/auth/esqueci-senha` sempre responde **202**, exista ou não a conta (não revela e-mails cadastrados).
+- O link `{Notificacoes:UrlFrontend}/redefinir-senha?token=...` leva um token aleatório de 256 bits, armazenado apenas como hash SHA-256, de **uso único** e com validade de `Notificacoes:ValidadeLinkRedefinicaoMinutos` (60 min). Um novo pedido invalida os links anteriores.
+- `POST /api/v1/auth/redefinir-senha` troca a senha, libera um eventual bloqueio por tentativas e **revoga todas as sessões** (refresh tokens) do usuário. Token inválido/expirado/usado retorna 422.
+
+### Notificações e e-mails
+
+- **In-app:** `GET /api/v1/notificacoes`, `GET /notificacoes/contador` (sino), `POST /notificacoes/{id}/lida`, `POST /notificacoes/lidas`.
+- **Eventos:** novo documento (escritório publica → usuários do cliente; cliente envia → equipe do escritório), envio explícito de documentos ao cliente (`POST /empresas/{id}/documentos/enviar`), vencimento próximo, nova solicitação e atualização de solicitação (status, mensagens e atribuição). Quem executou a ação não é notificado.
+- **Lembrete de vencimento:** job a cada `Notificacoes:LembreteVencimento:IntervaloMinutos` avisa os usuários do cliente sobre documentos que vencem em até `DiasLembreteVencimento` dias (configurável por escritório em `PUT /escritorio`, 0 desativa). Cada documento é lembrado uma única vez.
+- **Preferências:** `GET/PUT /api/v1/notificacoes/preferencias` liga/desliga o e-mail por tipo; a notificação in-app é sempre gerada.
+- **Envio assíncrono (outbox):** e-mails são gravados em `emails_pendentes` na mesma transação da ação e enviados em segundo plano (`FOR UPDATE SKIP LOCKED`, seguro com várias instâncias), com até 5 tentativas e backoff exponencial. Templates HTML + texto com nome/logo do escritório.
+- **Provider:** `Email:Provider = Smtp` (MailKit; `Email:Smtp:*`) ou `Log` (apenas registra no log; padrão sem SMTP e nos testes). Em desenvolvimento o docker compose sobe o **Mailpit** (SMTP na porta 1025).
+
 ## Próximos passos (backlog)
 
-Recuperação de senha e convites por e-mail, departamentos e responsáveis, auditoria de documentos, envio de documentos por e-mail, editor rico nas notícias, emissão automática de CND, NF-e, tarefas e notificações. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
+Convites por e-mail, departamentos e responsáveis, auditoria de documentos, editor rico nas notícias, emissão automática de CND, NF-e e tarefas. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
