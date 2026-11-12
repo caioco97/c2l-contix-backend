@@ -41,12 +41,13 @@ public static class ServiceCollectionExtensions
             .AllowAnyMethod()
             .WithExposedHeaders("Content-Disposition", CorrelationIdMiddleware.Header)));
 
+        var limiteAuthPorMinuto = configuration.GetValue("RateLimit:AuthPorMinuto", 20);
         services.AddRateLimiter(o =>
         {
             o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             o.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = limiteAuthPorMinuto, Window = TimeSpan.FromMinutes(1) }));
         });
 
         return services.AddJwtAuthentication(configuration).AddSwagger();

@@ -33,6 +33,7 @@ public sealed class EscritorioService(
         e.Telefone = request.Telefone?.Trim();
         e.Endereco = request.Endereco?.ToEntity();
         e.LogoUrl = request.LogoUrl;
+        if (request.DiasLembreteVencimento is { } dias) e.DiasLembreteVencimento = dias;
         await unitOfWork.SaveChangesAsync(ct);
         return EscritorioDto.From(e);
     }

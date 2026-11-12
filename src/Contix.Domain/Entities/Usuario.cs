@@ -35,6 +35,14 @@ public class Usuario : TenantEntity
         }
     }
 
+    /// <summary>Troca a senha (recuperação por e-mail) e libera um eventual bloqueio por tentativas.</summary>
+    public void RedefinirSenha(string novoHash)
+    {
+        SenhaHash = novoHash;
+        TentativasLoginFalhas = 0;
+        BloqueadoAte = null;
+    }
+
     public void RegistrarLoginComSucesso(DateTime agora)
     {
         TentativasLoginFalhas = 0;

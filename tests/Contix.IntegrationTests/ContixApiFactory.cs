@@ -23,6 +23,12 @@ public sealed class ContixApiFactory : WebApplicationFactory<Program>, IAsyncLif
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Database:SeedDemoData", "true");
         builder.UseSetting("FileStorage:LocalPath", _storage);
+        // Jobs em segundo plano desligados: os testes acionam a fila e os lembretes de forma determinística.
+        builder.UseSetting("Email:Provider", "Log");
+        builder.UseSetting("RateLimit:AuthPorMinuto", "1000");
+        builder.UseSetting("Email:ProcessarFila", "false");
+        builder.UseSetting("Notificacoes:LembreteVencimento:Habilitado", "false");
+        builder.UseSetting("Notificacoes:UrlFrontend", "https://app.contix.test");
     }
 
     public Task InitializeAsync() => _db?.StartAsync() ?? Task.CompletedTask;

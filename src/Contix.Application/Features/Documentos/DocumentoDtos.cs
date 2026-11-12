@@ -74,3 +74,16 @@ public sealed class DownloadDocumentosRequestValidator : AbstractValidator<Downl
     public DownloadDocumentosRequestValidator() =>
         RuleFor(x => x.DocumentoIds).NotEmpty().Must(i => i.Count <= 200).WithMessage("Selecione no máximo 200 documentos.");
 }
+
+/// <summary>Envio de documentos ao cliente: os usuários da empresa recebem e-mail com link para o portal (sem anexo).</summary>
+public sealed record EnviarDocumentosRequest(IReadOnlyList<Guid> DocumentoIds, string? Mensagem);
+
+public sealed class EnviarDocumentosRequestValidator : AbstractValidator<EnviarDocumentosRequest>
+{
+    public EnviarDocumentosRequestValidator()
+    {
+        RuleFor(x => x.DocumentoIds).NotEmpty().WithMessage("Selecione ao menos um documento.")
+            .Must(i => i.Count <= 100).WithMessage("Selecione no máximo 100 documentos.");
+        RuleFor(x => x.Mensagem).MaximumLength(2000);
+    }
+}

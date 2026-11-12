@@ -18,6 +18,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # Servidor SMTP de desenvolvimento: captura todos os e-mails. Caixa de entrada em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+
   api:
     build:
       context: .
@@ -26,6 +34,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ConnectionStrings__Default: Host=db;Port=5432;Database=${POSTGRES_DB:-contix};Username=${POSTGRES_USER:-contix};Password=${POSTGRES_PASSWORD:-contix}
@@ -34,6 +44,14 @@ services:
       Database__MigrateOnStartup: ${DB_MIGRATE_ON_STARTUP:-true}
       Database__SeedDemoData: ${DB_SEED_DEMO:-true}
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
+      Notificacoes__UrlFrontend: ${FRONTEND_URL:-http://localhost:5173}
+      Email__Provider: ${EMAIL_PROVIDER:-Smtp}
+      Email__Remetente: ${EMAIL_REMETENTE:-nao-responda@contix.dev}
+      Email__Smtp__Host: ${SMTP_HOST:-mailpit}
+      Email__Smtp__Porta: ${SMTP_PORT:-1025}
+      Email__Smtp__Seguranca: ${SMTP_SEGURANCA:-None}
+      Email__Smtp__Usuario: ${SMTP_USUARIO:-}
+      Email__Smtp__Senha: ${SMTP_SENHA:-}
     ports:
       - "${API_PORT:-5080}:8080"
     volumes:

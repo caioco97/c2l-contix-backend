@@ -3,8 +3,10 @@ using Contix.Application.Common.Abstractions;
 using Contix.Application.Common.Exceptions;
 using Contix.Application.Common.Models;
 using Contix.Application.Features.Empresas;
+using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Pastas;
 using Contix.Domain.Entities;
+using Contix.Domain.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -20,6 +22,8 @@ public interface IDocumentoService
     Task MarcarComoLidoAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default);
     Task ExcluirAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default);
     Task<IReadOnlyList<VencimentoDto>> ListarVencimentosAsync(Guid empresaId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+    /// <returns>Quantidade de usuários do cliente avisados.</returns>
+    Task<int> EnviarAoClienteAsync(Guid empresaId, EnviarDocumentosRequest request, CancellationToken ct = default);
 }
 
 public sealed class DocumentoService(
@@ -31,7 +35,10 @@ public sealed class DocumentoService(
     ICurrentUser currentUser,
     IDateTimeProvider clock,
     IOptions<DocumentoOptions> options,
+    INotificador notificador,
+    INotificacaoRepository destinatarios,
     FluentValidation.IValidator<UploadDocumentosCommand> uploadValidator,
+    FluentValidation.IValidator<EnviarDocumentosRequest> enviarValidator,
     ILogger<DocumentoService> logger) : IDocumentoService
 {
     public async Task<PagedResult<DocumentoDto>> PesquisarAsync(Guid empresaId, DocumentoFiltro filtro, CancellationToken ct = default)
@@ -91,6 +98,7 @@ public sealed class DocumentoService(
                 await documentos.AddAsync(doc, ct);
             }
 
+            await NotificarNovosDocumentosAsync(empresa, pasta, salvos, ct);
             await unitOfWork.SaveChangesAsync(ct);
         }
         catch
@@ -186,6 +194,60 @@ public sealed class DocumentoService(
         var mapa = (await pastas.ListarPorEmpresaAsync(empresaId, ct)).ToDictionary(p => p.Id);
         return itens.Select(i => i with { CaminhoPasta = PastaTree.Caminho(i.PastaId, mapa) }).ToList();
     }
+
+    public async Task<int> EnviarAoClienteAsync(Guid empresaId, EnviarDocumentosRequest request, CancellationToken ct = default)
+    {
+        if (currentUser.EhCliente) throw new ForbiddenException();
+        await FluentValidation.DefaultValidatorExtensions.ValidateAndThrowAsync(enviarValidator, request, ct);
+        var empresa = await acesso.GarantirAcessoAsync(empresaId, ct);
+        var ids = request.DocumentoIds.Distinct().ToList();
+        var docs = await documentos.ListarPorIdsAsync(empresaId, ids, ct);
+        if (docs.Count != ids.Count) throw new NotFoundException("Um ou mais documentos selecionados");
+
+        var clientes = await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ct);
+        if (clientes.Count == 0)
+            throw new Contix.Domain.Exceptions.DomainException("A empresa não possui usuários ativos no portal para receber os documentos.");
+
+        var nomeEmpresa = NomeEmpresa(empresa);
+        var (titulo, mensagem) = docs.Count == 1
+            ? ($"Documento disponível: {docs[0].Nome}", $"O documento \"{docs[0].Nome}\" da empresa {nomeEmpresa} está disponível no portal.")
+            : ($"{docs.Count} documentos disponíveis", $"{docs.Count} documentos da empresa {nomeEmpresa} estão disponíveis no portal: " +
+                                                     string.Join(", ", docs.Take(5).Select(d => d.Nome)) + (docs.Count > 5 ? "..." : "."));
+        var pastaId = docs.Select(d => d.PastaId).Distinct().Count() == 1 ? docs[0].PastaId : (Guid?)null;
+
+        await notificador.NotificarAsync(empresa.TenantId, clientes, new EventoNotificacao(
+            TipoNotificacao.NovoDocumento, titulo, mensagem, empresaId, docs.Count == 1 ? docs[0].Id : null,
+            _ => pastaId is { } p ? $"/documentos/{p}" : "/documentos", "Ver documentos",
+            IgnorarPreferenciaEmail: true,
+            MensagemAdicional: string.IsNullOrWhiteSpace(request.Mensagem) ? null : request.Mensagem.Trim()), ct);
+        await unitOfWork.SaveChangesAsync(ct);
+
+        logger.LogInformation("{Quantidade} documento(s) da empresa {EmpresaId} enviados a {Destinatarios} usuário(s)",
+            docs.Count, empresaId, clientes.Count);
+        return clientes.Count(c => c.Id != currentUser.UserId);
+    }
+
+    private async Task NotificarNovosDocumentosAsync(Empresa empresa, Pasta pasta, IReadOnlyList<Documento> novos, CancellationToken ct)
+    {
+        // Escritório publicou: avisa o cliente. Cliente enviou: avisa a equipe do escritório.
+        var alvo = currentUser.EhCliente
+            ? await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct)
+            : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresa.Id, ct);
+        if (alvo.Count == 0) return;
+
+        var nomeEmpresa = NomeEmpresa(empresa);
+        var origem = currentUser.EhCliente ? $"A empresa {nomeEmpresa} enviou" : "Foi publicado";
+        var (titulo, mensagem) = novos.Count == 1
+            ? ($"Novo documento: {novos[0].Nome}", $"{origem} o documento \"{novos[0].Nome}\" na pasta {pasta.Nome}.")
+            : ($"{novos.Count} novos documentos em {pasta.Nome}", $"{origem} {novos.Count} documentos na pasta {pasta.Nome}.");
+        if (!currentUser.EhCliente) mensagem += $" Empresa: {nomeEmpresa}.";
+
+        await notificador.NotificarAsync(empresa.TenantId, alvo, new EventoNotificacao(
+            TipoNotificacao.NovoDocumento, titulo, mensagem, empresa.Id, novos.Count == 1 ? novos[0].Id : null,
+            _ => $"/documentos/{pasta.Id}", "Ver documentos"), ct);
+    }
+
+    private static string NomeEmpresa(Empresa e) => e.NomeFantasia ?? e.RazaoSocial;
 
     private async Task<Documento> CarregarAsync(Guid empresaId, Guid documentoId, CancellationToken ct)
     {

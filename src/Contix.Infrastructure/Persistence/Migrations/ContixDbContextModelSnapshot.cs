@@ -68,6 +68,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
 
+                    b.Property<DateTime?>("LembreteVencimentoEnviadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lembrete_vencimento_enviado_em");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -145,6 +149,75 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_documento_leituras_usuario_id");
 
                     b.ToTable("documento_leituras", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.EmailPendente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Assunto")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("assunto");
+
+                    b.Property<string>("CorpoHtml")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("corpo_html");
+
+                    b.Property<string>("CorpoTexto")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("corpo_texto");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("EnviadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enviado_em");
+
+                    b.Property<string>("NomePara")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("nome_para");
+
+                    b.Property<string>("Para")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("para");
+
+                    b.Property<DateTime>("ProximaTentativaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proxima_tentativa_em");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("integer")
+                        .HasColumnName("tentativas");
+
+                    b.Property<string>("UltimoErro")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("ultimo_erro");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_emails_pendentes");
+
+                    b.HasIndex("ProximaTentativaEm")
+                        .HasDatabaseName("ix_emails_pendentes_proxima_tentativa_em")
+                        .HasFilter("enviado_em IS NULL");
+
+                    b.ToTable("emails_pendentes", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Empresa", b =>
@@ -265,6 +338,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int>("DiasLembreteVencimento")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias_lembrete_vencimento");
+
                     b.Property<string>("Email")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -307,6 +384,84 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_escritorios_cnpj");
 
                     b.ToTable("escritorios", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.Notificacao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LidaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lida_em");
+
+                    b.Property<string>("Link")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("link");
+
+                    b.Property<string>("Mensagem")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("mensagem");
+
+                    b.Property<Guid?>("ReferenciaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("referencia_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("tipo");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("titulo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notificacoes");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_notificacoes_tenant_id");
+
+                    b.HasIndex("UsuarioId", "LidaEm", "CreatedAt")
+                        .HasDatabaseName("ix_notificacoes_usuario_id_lida_em_created_at");
+
+                    b.ToTable("notificacoes", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Pasta", b =>
@@ -371,6 +526,27 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_pastas_tenant_id_empresa_id");
 
                     b.ToTable("pastas", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.PreferenciaNotificacao", b =>
+                {
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<string>("Tipo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("tipo");
+
+                    b.Property<bool>("ReceberEmail")
+                        .HasColumnType("boolean")
+                        .HasColumnName("receber_email");
+
+                    b.HasKey("UsuarioId", "Tipo")
+                        .HasName("pk_preferencias_notificacao");
+
+                    b.ToTable("preferencias_notificacao", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.RefreshToken", b =>
@@ -668,6 +844,61 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("solicitacao_interacoes", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.TokenRedefinicaoSenha", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CriadoPorIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("criado_por_ip");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expira_em");
+
+                    b.Property<DateTime?>("InvalidadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("invalidado_em");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateTime?>("UsadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("usado_em");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tokens_redefinicao_senha");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tokens_redefinicao_senha_token_hash");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_tokens_redefinicao_senha_usuario_id");
+
+                    b.ToTable("tokens_redefinicao_senha", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Usuario", b =>
                 {
                     b.Property<Guid>("Id")
@@ -939,6 +1170,25 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Endereco");
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.Notificacao", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Escritorio", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_notificacoes_escritorios_tenant_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notificacoes_usuarios_usuario_id");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Pasta", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
@@ -957,6 +1207,16 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Empresa");
 
                     b.Navigation("PastaPai");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.PreferenciaNotificacao", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_preferencias_notificacao_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.RefreshToken", b =>
@@ -1049,6 +1309,18 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_solicitacao_interacoes_solicitacoes_solicitacao_id");
 
                     b.Navigation("Autor");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.TokenRedefinicaoSenha", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tokens_redefinicao_senha_usuarios_usuario_id");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Usuario", b =>

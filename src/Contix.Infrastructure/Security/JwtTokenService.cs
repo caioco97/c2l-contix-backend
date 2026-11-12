@@ -41,6 +41,15 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, IDateTimeProvi
         return new GeneratedRefreshToken(token, HashRefreshToken(token), clock.UtcNow.AddDays(_options.RefreshTokenDias));
     }
 
+    public GeneratedOpaqueToken GerarTokenOpaco()
+    {
+        var token = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
+        return new GeneratedOpaqueToken(token, HashToken(token));
+    }
+
+    public string HashToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
+
     public string HashRefreshToken(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }

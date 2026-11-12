@@ -33,6 +33,32 @@ public sealed class AuthController(IAuthService auth) : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Solicita o link de redefinição de senha por e-mail. A resposta é sempre 202,
+    /// exista ou não uma conta com o e-mail informado.
+    /// </summary>
+    [HttpPost("esqueci-senha")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> EsqueciSenha(EsqueciSenhaRequest request, CancellationToken ct)
+    {
+        await auth.SolicitarRedefinicaoSenhaAsync(request, ct);
+        return Accepted();
+    }
+
+    /// <summary>Define a nova senha com o token recebido por e-mail (uso único). Encerra as sessões abertas.</summary>
+    [HttpPost("redefinir-senha")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> RedefinirSenha(RedefinirSenhaRequest request, CancellationToken ct)
+    {
+        await auth.RedefinirSenhaAsync(request, ct);
+        return NoContent();
+    }
+
     /// <summary>Onboarding: cria um escritório contábil e o usuário administrador.</summary>
     [HttpPost("registrar")]
     [AllowAnonymous]
