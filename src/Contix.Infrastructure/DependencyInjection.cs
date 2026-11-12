@@ -1,9 +1,11 @@
 using Contix.Application.Features.Solicitacoes;
 using Contix.Application.Common.Abstractions;
 using Contix.Application.Features.Auth;
+using Contix.Application.Features.Certidoes;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
+using Contix.Application.Features.Noticias;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Usuarios;
 using Contix.Infrastructure.Common;
@@ -50,6 +52,8 @@ public static class DependencyInjection
         services.AddScoped<IPastaRepository, PastaRepository>();
         services.AddScoped<IDocumentoRepository, DocumentoRepository>();
         services.AddScoped<ISolicitacaoRepository, SolicitacaoRepository>();
+        services.AddScoped<INoticiaRepository, NoticiaRepository>();
+        services.AddScoped<ICertidaoRepository, CertidaoRepository>();
 
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
