@@ -17,6 +17,9 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Documento> Documentos => Set<Documento>();
     public DbSet<DocumentoLeitura> DocumentoLeituras => Set<DocumentoLeitura>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Solicitacao> Solicitacoes => Set<Solicitacao>();
+    public DbSet<SolicitacaoInteracao> SolicitacaoInteracoes => Set<SolicitacaoInteracao>();
+    public DbSet<SolicitacaoAnexo> SolicitacaoAnexos => Set<SolicitacaoAnexo>();
 
     /// <summary>
     /// Tenant da requisição. Avaliado a cada consulta pelo filtro global.

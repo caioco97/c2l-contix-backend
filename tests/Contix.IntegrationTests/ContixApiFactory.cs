@@ -7,24 +7,29 @@ namespace Contix.IntegrationTests;
 /// <summary>Sobe a API com um PostgreSQL real em container (Testcontainers) e os dados de demonstração.</summary>
 public sealed class ContixApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:17-alpine").Build();
+    /// <summary>
+    /// Com CONTIX_TEST_CONNECTION definida, usa esse PostgreSQL (banco descartável) em vez de subir um container.
+    /// Útil em ambientes sem Docker.
+    /// </summary>
+    private static readonly string? ConexaoExterna = Environment.GetEnvironmentVariable("CONTIX_TEST_CONNECTION");
+    private readonly PostgreSqlContainer? _db = ConexaoExterna is null ? new PostgreSqlBuilder("postgres:17-alpine").Build() : null;
     private readonly string _storage = Path.Combine(Path.GetTempPath(), "contix-tests-" + Guid.NewGuid().ToString("N"));
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
-        builder.UseSetting("ConnectionStrings:Default", _db.GetConnectionString());
+        builder.UseSetting("ConnectionStrings:Default", ConexaoExterna ?? _db!.GetConnectionString());
         builder.UseSetting("Jwt:SigningKey", "integration-tests-signing-key-0123456789abcdef");
         builder.UseSetting("Database:MigrateOnStartup", "true");
         builder.UseSetting("Database:SeedDemoData", "true");
         builder.UseSetting("FileStorage:LocalPath", _storage);
     }
 
-    public Task InitializeAsync() => _db.StartAsync();
+    public Task InitializeAsync() => _db?.StartAsync() ?? Task.CompletedTask;
 
     async Task IAsyncLifetime.DisposeAsync()
     {
-        await _db.DisposeAsync();
+        if (_db is not null) await _db.DisposeAsync();
         if (Directory.Exists(_storage)) Directory.Delete(_storage, recursive: true);
         await base.DisposeAsync();
     }

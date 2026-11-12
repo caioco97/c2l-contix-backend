@@ -14,4 +14,6 @@ public class Escritorio : BaseEntity
     public Endereco? Endereco { get; set; }
     public string? LogoUrl { get; set; }
     public bool Ativo { get; set; } = true;
+    /// <summary>Último número de solicitação emitido (sequência por escritório).</summary>
+    public int UltimoNumeroSolicitacao { get; set; }
 }
