@@ -124,6 +124,34 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 - **Número:** sequencial por escritório (`#1`, `#2`...), reservado de forma atômica.
 - **Prazo (SLA):** definido pelo prazo padrão do tipo na abertura e ajustável pelo escritório; `atrasada` indica prazo vencido sem conclusão.
 
+### Notícias e comunicados
+
+| Método | Rota | Perfil | Descrição |
+| --- | --- | --- | --- |
+| GET | `/noticias` | escritório | Lista com situação (`Agendada`, `Publicada`, `Expirada`) e alcance (`empresasLeram` / `empresasDestinatarias`) |
+| POST / PUT | `/noticias[/{id}]` | escritório | Multipart: `titulo`, `resumo`, `conteudo`, `publicarEm`, `expiraEm`, `publico`, `empresaIds`, `regimes`, `imagem`, `anexos`; na edição, `anexosRemovidos` e `removerImagem` |
+| DELETE | `/noticias/{id}` | escritório | Exclusão lógica |
+| GET | `/noticias/{id}/leituras` | escritório | Empresas destinatárias e se o cliente já leu |
+| GET | `/empresas/{id}/noticias?status=NaoLidos\|Lidos` | autenticado | Notícias publicadas para a empresa |
+| GET / POST | `/empresas/{id}/noticias/{noticiaId}` · `/lida` | autenticado | Detalhe · marca como lida (idempotente) |
+| GET | `/empresas/{id}/noticias/{noticiaId}/imagem` · `/anexos/{anexoId}/download` | autenticado | Imagem e anexos |
+
+- **Público:** `Todos` (inclui empresas cadastradas depois), `EmpresasSelecionadas` ou `RegimeTributario`. Notícias agendadas, expiradas ou de outro público respondem 404 no portal.
+- **Leitura:** registrada por usuário e empresa. O alcance conta só leituras de usuários do cliente; a pré-visualização pelo escritório não infla o número.
+- **Conteúdo:** texto puro com parágrafos (sem HTML, para não abrir brecha de XSS). Sem `resumo`, o portal mostra o início do conteúdo.
+
+### Certidões (CND)
+
+| Método | Rota | Perfil | Descrição |
+| --- | --- | --- | --- |
+| GET | `/empresas/{id}/certidoes?somenteAtuais=true&tipo=` | autenticado | Histórico ou só a certidão atual de cada tipo |
+| POST / PUT / DELETE | `/empresas/{id}/certidoes[/{certidaoId}]` | escritório | Multipart: `tipo`, `situacao`, `numero`, `emissao`, `validade`, `observacao`, `arquivo` (`removerArquivo` na edição) |
+| GET | `/empresas/{id}/certidoes/{certidaoId}/download` | autenticado | Arquivo da certidão |
+| GET | `/certidoes/painel?dias=30` | escritório | Certidões atuais vencidas, a vencer e positivas de todas as empresas, com totais de 15/30 dias |
+
+- **Tipos:** `FederalPgfn`, `Estadual`, `Municipal`, `Fgts`, `Trabalhista`. **Situação:** `Negativa`, `PositivaComEfeitoNegativa`, `Positiva`.
+- **Atual:** a de validade mais recente de cada tipo; renovar uma certidão vencida a tira do painel. `statusValidade` é `Vigente`, `AVencer` (até 30 dias) ou `Vencida`; `regular` = não positiva e dentro da validade.
+
 ## Configuração
 
 Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de ambiente (`Secao__Chave`).
@@ -141,10 +169,6 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
 
-## Próximos passos (backlog)
-
-Recuperação de senha e convites por e-mail, departamentos e responsáveis, auditoria de documentos, envio de documentos por e-mail, notícias, CND, NF-e, tarefas e notificações. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
-
 ### Recuperação de senha
 
 - `POST /api/v1/auth/esqueci-senha` sempre responde **202**, exista ou não a conta (não revela e-mails cadastrados).
@@ -159,3 +183,7 @@ Recuperação de senha e convites por e-mail, departamentos e responsáveis, aud
 - **Preferências:** `GET/PUT /api/v1/notificacoes/preferencias` liga/desliga o e-mail por tipo; a notificação in-app é sempre gerada.
 - **Envio assíncrono (outbox):** e-mails são gravados em `emails_pendentes` na mesma transação da ação e enviados em segundo plano (`FOR UPDATE SKIP LOCKED`, seguro com várias instâncias), com até 5 tentativas e backoff exponencial. Templates HTML + texto com nome/logo do escritório.
 - **Provider:** `Email:Provider = Smtp` (MailKit; `Email:Smtp:*`) ou `Log` (apenas registra no log; padrão sem SMTP e nos testes). Em desenvolvimento o docker compose sobe o **Mailpit** (SMTP na porta 1025).
+
+## Próximos passos (backlog)
+
+Convites por e-mail, departamentos e responsáveis, auditoria de documentos, editor rico nas notícias, emissão automática de CND, NF-e e tarefas. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.

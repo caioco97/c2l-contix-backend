@@ -183,11 +183,11 @@ public sealed class AuthService(
         var agora = clock.UtcNow;
         var token = await tokensRedefinicao.GetByHashAsync(tokenService.HashToken(request.Token), ct);
         if (token is null || !token.EstaValido(agora))
-            throw new DomainException("Link de redefinição inválido ou expirado. Solicite um novo link.");
+            throw new DomainException("Link de redefinição inválido ou expirado.");
 
         var usuario = await usuarios.GetByIdIgnorandoTenantAsync(token.UsuarioId, ct);
         if (usuario is null || !usuario.Ativo)
-            throw new DomainException("Link de redefinição inválido ou expirado. Solicite um novo link.");
+            throw new DomainException("Link de redefinição inválido ou expirado.");
 
         token.MarcarComoUsado(agora);
         usuario.RedefinirSenha(passwordHasher.Hash(request.NovaSenha));

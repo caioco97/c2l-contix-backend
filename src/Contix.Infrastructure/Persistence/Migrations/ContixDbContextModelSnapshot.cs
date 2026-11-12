@@ -22,6 +22,108 @@ namespace Contix.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Contix.Domain.Entities.Certidao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CadastradoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cadastrado_por_id");
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateOnly>("Emissao")
+                        .HasColumnType("date")
+                        .HasColumnName("emissao");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("NomeArquivo")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nome_arquivo");
+
+                    b.Property<string>("Numero")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("numero");
+
+                    b.Property<string>("Observacao")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("observacao");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("situacao");
+
+                    b.Property<string>("StorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<long?>("TamanhoBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("tamanho_bytes");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateOnly>("Validade")
+                        .HasColumnType("date")
+                        .HasColumnName("validade");
+
+                    b.HasKey("Id")
+                        .HasName("pk_certidoes");
+
+                    b.HasIndex("CadastradoPorId")
+                        .HasDatabaseName("ix_certidoes_cadastrado_por_id");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_certidoes_empresa_id");
+
+                    b.HasIndex("TenantId", "Validade")
+                        .HasDatabaseName("ix_certidoes_tenant_id_validade");
+
+                    b.HasIndex("TenantId", "EmpresaId", "Tipo", "Validade")
+                        .HasDatabaseName("ix_certidoes_tenant_id_empresa_id_tipo_validade");
+
+                    b.ToTable("certidoes", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Documento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -384,6 +486,193 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_escritorios_cnpj");
 
                     b.ToTable("escritorios", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.Noticia", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AutorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autor_id");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)")
+                        .HasColumnName("conteudo");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTime?>("ExpiraEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expira_em");
+
+                    b.Property<string>("ImagemContentType")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("imagem_content_type");
+
+                    b.Property<string>("ImagemStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("imagem_storage_key");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTime>("PublicarEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("publicar_em");
+
+                    b.Property<string>("Publico")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("publico");
+
+                    b.PrimitiveCollection<string[]>("Regimes")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("regimes");
+
+                    b.Property<string>("Resumo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("resumo");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("titulo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_noticias");
+
+                    b.HasIndex("AutorId")
+                        .HasDatabaseName("ix_noticias_autor_id");
+
+                    b.HasIndex("TenantId", "PublicarEm")
+                        .HasDatabaseName("ix_noticias_tenant_id_publicar_em");
+
+                    b.ToTable("noticias", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.NoticiaAnexo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("NomeArquivo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nome_arquivo");
+
+                    b.Property<Guid>("NoticiaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("noticia_id");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<long>("TamanhoBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("tamanho_bytes");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_noticia_anexos");
+
+                    b.HasIndex("NoticiaId")
+                        .HasDatabaseName("ix_noticia_anexos_noticia_id");
+
+                    b.ToTable("noticia_anexos", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.NoticiaEmpresa", b =>
+                {
+                    b.Property<Guid>("NoticiaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("noticia_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.HasKey("NoticiaId", "EmpresaId")
+                        .HasName("pk_noticia_empresas");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_noticia_empresas_empresa_id");
+
+                    b.ToTable("noticia_empresas", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.NoticiaLeitura", b =>
+                {
+                    b.Property<Guid>("NoticiaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("noticia_id");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.Property<DateTime>("LidoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lido_em");
+
+                    b.HasKey("NoticiaId", "EmpresaId", "UsuarioId")
+                        .HasName("pk_noticia_leituras");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_noticia_leituras_empresa_id");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_noticia_leituras_usuario_id");
+
+                    b.ToTable("noticia_leituras", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Notificacao", b =>
@@ -1002,6 +1291,27 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("usuario_empresas", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.Certidao", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "CadastradoPor")
+                        .WithMany()
+                        .HasForeignKey("CadastradoPorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_certidoes_usuarios_cadastrado_por_id");
+
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_certidoes_empresas_empresa_id");
+
+                    b.Navigation("CadastradoPor");
+
+                    b.Navigation("Empresa");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Documento", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Usuario", "AdicionadoPor")
@@ -1168,6 +1478,80 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Endereco");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.Noticia", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Autor")
+                        .WithMany()
+                        .HasForeignKey("AutorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticias_usuarios_autor_id");
+
+                    b.HasOne("Contix.Domain.Entities.Escritorio", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticias_escritorios_tenant_id");
+
+                    b.Navigation("Autor");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.NoticiaAnexo", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Noticia", null)
+                        .WithMany("Anexos")
+                        .HasForeignKey("NoticiaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticia_anexos_noticias_noticia_id");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.NoticiaEmpresa", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticia_empresas_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Noticia", null)
+                        .WithMany("Empresas")
+                        .HasForeignKey("NoticiaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticia_empresas_noticias_noticia_id");
+
+                    b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.NoticiaLeitura", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Empresa", null)
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticia_leituras_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Noticia", null)
+                        .WithMany("Leituras")
+                        .HasForeignKey("NoticiaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticia_leituras_noticias_noticia_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_noticia_leituras_usuarios_usuario_id");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Notificacao", b =>
@@ -1366,6 +1750,15 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Pastas");
 
                     b.Navigation("Usuarios");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.Noticia", b =>
+                {
+                    b.Navigation("Anexos");
+
+                    b.Navigation("Empresas");
+
+                    b.Navigation("Leituras");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Pasta", b =>

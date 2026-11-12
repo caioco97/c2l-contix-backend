@@ -100,6 +100,8 @@ public sealed class DbInitializer(
         context.Pastas.Add(darf);
         context.Documentos.Add(documento);
         context.Solicitacoes.AddRange(SolicitacoesDemo(escritorio, empresa, cliente, colaborador, agora));
+        context.Noticias.AddRange(NoticiasDemo(escritorio, colaborador, agora));
+        context.Certidoes.AddRange(CertidoesDemo(escritorio, empresa, colaborador, agora));
         await context.SaveChangesAsync(ct);
 
         logger.LogInformation(
@@ -134,6 +136,60 @@ public sealed class DbInitializer(
 
         escritorio.UltimoNumeroSolicitacao = 2;
         return [geral, ferias];
+    }
+
+    private static IEnumerable<Noticia> NoticiasDemo(Escritorio escritorio, Usuario autor, DateTime agora)
+    {
+        Noticia Nova(string titulo, string? resumo, string conteudo, DateTime publicarEm)
+        {
+            var n = new Noticia { TenantId = escritorio.Id, AutorId = autor.Id, Titulo = titulo, Resumo = resumo, Conteudo = conteudo };
+            n.DefinirPeriodo(publicarEm, null);
+            n.DefinirPublico(PublicoNoticia.Todos, [], []);
+            return n;
+        }
+
+        var simples = Nova(
+            "Novo prazo para a DEFIS",
+            "A Receita Federal prorrogou o prazo de entrega da DEFIS. Veja o que muda para a sua empresa.",
+            "A Receita Federal prorrogou o prazo de entrega da Declaração de Informações Socioeconômicas e Fiscais (DEFIS).\n\n" +
+            "Nosso time já está preparando as declarações. Caso ainda não tenha enviado o faturamento do último mês, " +
+            "envie pela pasta Financeiro do portal.",
+            agora.AddDays(-1));
+        simples.DefinirPublico(PublicoNoticia.RegimeTributario, [], [RegimeTributario.SimplesNacional, RegimeTributario.MEI]);
+
+        return
+        [
+            simples,
+            Nova("Reforma tributária: o que muda em 2027",
+                null,
+                "A partir de 2027 começa a transição para o IBS e a CBS. Preparamos um resumo com os principais pontos " +
+                "de atenção para empresas de serviços e comércio.\n\nEm breve entraremos em contato para agendar uma reunião.",
+                agora.AddDays(-5)),
+            Nova("Horário de atendimento no fim de ano",
+                "Nosso escritório funcionará em horário reduzido entre 24/12 e 02/01.",
+                "Nosso escritório funcionará em horário reduzido entre 24/12 e 02/01, das 9h às 15h.\n\n" +
+                "Solicitações abertas no portal continuam sendo atendidas normalmente.",
+                agora.AddDays(-12)),
+        ];
+    }
+
+    private static IEnumerable<Certidao> CertidoesDemo(Escritorio escritorio, Empresa empresa, Usuario autor, DateTime agora)
+    {
+        var hoje = DateOnly.FromDateTime(agora);
+        Certidao Nova(TipoCertidao tipo, SituacaoCertidao situacao, int emitidaHaDias, int validaPorDias)
+        {
+            var c = new Certidao { TenantId = escritorio.Id, EmpresaId = empresa.Id, Tipo = tipo, Situacao = situacao, CadastradoPorId = autor.Id };
+            c.DefinirDatas(hoje.AddDays(-emitidaHaDias), hoje.AddDays(-emitidaHaDias + validaPorDias));
+            return c;
+        }
+
+        return
+        [
+            Nova(TipoCertidao.FederalPgfn, SituacaoCertidao.Negativa, 60, 180),
+            Nova(TipoCertidao.Fgts, SituacaoCertidao.Negativa, 25, 30),
+            Nova(TipoCertidao.Estadual, SituacaoCertidao.PositivaComEfeitoNegativa, 20, 90),
+            Nova(TipoCertidao.Trabalhista, SituacaoCertidao.Negativa, 200, 180),
+        ];
     }
 
     private const string PdfExemplo =
