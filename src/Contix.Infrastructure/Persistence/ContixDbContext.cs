@@ -20,6 +20,11 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Solicitacao> Solicitacoes => Set<Solicitacao>();
     public DbSet<SolicitacaoInteracao> SolicitacaoInteracoes => Set<SolicitacaoInteracao>();
     public DbSet<SolicitacaoAnexo> SolicitacaoAnexos => Set<SolicitacaoAnexo>();
+    public DbSet<Noticia> Noticias => Set<Noticia>();
+    public DbSet<NoticiaEmpresa> NoticiaEmpresas => Set<NoticiaEmpresa>();
+    public DbSet<NoticiaLeitura> NoticiaLeituras => Set<NoticiaLeitura>();
+    public DbSet<NoticiaAnexo> NoticiaAnexos => Set<NoticiaAnexo>();
+    public DbSet<Certidao> Certidoes => Set<Certidao>();
 
     /// <summary>
     /// Tenant da requisição. Avaliado a cada consulta pelo filtro global.
