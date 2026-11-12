@@ -115,7 +115,10 @@ public sealed class ApiTests(ContixApiFactory factory)
         };
         var upload = await admin.PostAsync($"/api/v1/empresas/{empresaId}/documentos", form);
         Assert.Equal(HttpStatusCode.Created, upload.StatusCode);
-        var documentoId = (await JsonAsync(upload))[0]!["id"]!.GetValue<string>();
+        var enviado = (await JsonAsync(upload))[0]!;
+        var documentoId = enviado["id"]!.GetValue<string>();
+        // Quem enviou não vê o próprio documento como "não lido".
+        Assert.True(enviado["lido"]!.GetValue<bool>());
 
         var cliente = await ClienteAutenticadoAsync("cliente@contix.dev");
         var naoLidos = await JsonAsync(await cliente.GetAsync($"/api/v1/empresas/{empresaId}/documentos?status=NaoLidos&pastaId={fiscalId}"));

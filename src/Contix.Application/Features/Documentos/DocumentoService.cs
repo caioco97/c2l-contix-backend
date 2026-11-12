@@ -80,6 +80,8 @@ public sealed class DocumentoService(
                     PublicadoEm = agora,
                     AdicionadoPorId = usuarioId
                 };
+                // Quem enviou já conhece o arquivo: não deve aparecer como "não lido" para ele.
+                doc.Leituras.Add(new DocumentoLeitura { DocumentoId = doc.Id, UsuarioId = usuarioId, LidoEm = agora });
                 doc.StorageKey = $"{empresa.TenantId:N}/{empresaId:N}/{doc.Id:N}{Path.GetExtension(arquivo.NomeArquivo).ToLowerInvariant()}";
 
                 await using (var stream = arquivo.AbrirLeitura())
