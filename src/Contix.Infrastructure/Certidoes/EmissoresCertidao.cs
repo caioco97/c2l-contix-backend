@@ -114,6 +114,9 @@ public sealed class EmissorCertidaoInfosimples(
             [empresa.EhCnpj ? "cnpj" : "cpf"] = empresa.Documento,
             ["timeout"] = Opcoes.TimeoutSegundos.ToString(CultureInfo.InvariantCulture),
         };
+        // Com uma certidão positiva com efeitos de negativa vigente, a RFB/PGFN não emite outra:
+        // "2via" faz a API buscar primeiro a segunda via da certidão válida.
+        if (tipo == TipoCertidao.FederalPgfn) campos["preferencia_emissao"] = "2via";
 
         using var resposta = await http.PostAsync(new Uri(new Uri(Opcoes.UrlBase), consulta), new FormUrlEncodedContent(campos), ct);
         if (!resposta.IsSuccessStatusCode)
@@ -176,10 +179,7 @@ public static class InfosimplesParser
             return new(null, null, "A consulta não retornou dados da certidão.", false);
         var item = data[0];
 
-        var url = Texto(item, "site_receipt")
-                  ?? (raiz.TryGetProperty("site_receipts", out var recibos) && recibos.ValueKind == JsonValueKind.Array
-                      ? recibos.EnumerateArray().Select(r => r.GetString()).FirstOrDefault(r => !string.IsNullOrWhiteSpace(r))
-                      : null);
+        var url = UrlComprovante(raiz, item);
 
         var (numero, emissao, validade, situacao) = tipo switch
         {
@@ -208,6 +208,32 @@ public static class InfosimplesParser
             $"{EmissorCertidaoSimulado.NomeArquivo(tipo)}-{(emissao ?? hoje):yyyyMMdd}.pdf",
             Texto(item, "observacoes", "mensagem"));
         return new(dados, url, null, false);
+    }
+
+    /// <summary>
+    /// URL do comprovante (PDF). A Infosimples já devolveu isso em lugares diferentes conforme a versão/consulta:
+    /// <c>receipt.sites_urls</c> (cliente oficial), <c>site_receipts</c> na raiz, ou <c>site_receipt</c>/<c>consulta_comprovante</c>
+    /// no item. Prefere links de PDF; o download confere a assinatura do arquivo de qualquer forma.
+    /// </summary>
+    private static string? UrlComprovante(JsonElement raiz, JsonElement item)
+    {
+        var candidatas = new List<string>();
+        void Adicionar(JsonElement e)
+        {
+            if (e.ValueKind == JsonValueKind.String && Uri.TryCreate(e.GetString(), UriKind.Absolute, out var u)
+                && u.Scheme is "https" or "http")
+                candidatas.Add(u.ToString());
+            else if (e.ValueKind == JsonValueKind.Array)
+                foreach (var x in e.EnumerateArray()) Adicionar(x);
+        }
+
+        if (raiz.TryGetProperty("receipt", out var receipt) && receipt.ValueKind == JsonValueKind.Object
+            && receipt.TryGetProperty("sites_urls", out var sites)) Adicionar(sites);
+        foreach (var campo in new[] { "site_receipt", "site_receipts", "consulta_comprovante" })
+            if (item.TryGetProperty(campo, out var v)) Adicionar(v);
+        if (raiz.TryGetProperty("site_receipts", out var recibos)) Adicionar(recibos);
+
+        return candidatas.FirstOrDefault(u => u.Contains(".pdf", StringComparison.OrdinalIgnoreCase)) ?? candidatas.FirstOrDefault();
     }
 
     private static SituacaoCertidao? SituacaoFgts(JsonElement item)

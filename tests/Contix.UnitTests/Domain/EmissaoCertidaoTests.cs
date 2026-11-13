@@ -116,6 +116,26 @@ public class InfosimplesParserTests
     }
 
     [Fact]
+    public void Comprovante_em_receipt_sites_urls_prefere_o_pdf()
+    {
+        var r = Analisar(TipoCertidao.FederalPgfn, """
+            { "code": 200, "receipt": { "sites_urls": [ "https://x/r.html", "https://x/r.pdf" ] },
+              "data": [ { "tipo": "Certidão Negativa", "emissao_data": "13/11/2026", "validade_data": "12/05/2027" } ] }
+            """);
+        Assert.Equal("https://x/r.pdf", r.UrlPdf);
+    }
+
+    [Fact]
+    public void Comprovante_em_consulta_comprovante()
+    {
+        var r = Analisar(TipoCertidao.FederalPgfn, """
+            { "code": 200, "data": [ { "tipo": "Certidão Negativa", "emissao_data": "13/11/2026", "validade_data": "12/05/2027",
+              "consulta_comprovante": "https://x/comprovante.pdf" } ] }
+            """);
+        Assert.Equal("https://x/comprovante.pdf", r.UrlPdf);
+    }
+
+    [Fact]
     public void Sem_validade_o_orgao_nao_emitiu_e_nao_adianta_repetir()
     {
         var r = Analisar(TipoCertidao.FederalPgfn, """
