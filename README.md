@@ -123,6 +123,12 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 | POST | `/empresas/{id}/solicitacoes/{solId}/status` | autenticado | Muda o status (`{ status, mensagem }`); cliente só cancela |
 | PUT | `/empresas/{id}/solicitacoes/{solId}/atribuicao` | escritório | Responsável e prazo (`{ responsavelId, prazo }`) |
 | GET | `/empresas/{id}/solicitacoes/{solId}/anexos/{anexoId}/download` | autenticado | Baixa um anexo |
+| GET | `/tarefas` | escritório | Tarefas de todas as empresas. Filtros `empresaId`, `status`, `emAberto`, `departamento`, `responsavelId`, `atrasadas`, `prazoAte`, `busca`; `orderBy` = `prazo` (padrão), `prazoLegal`, `numero`, `status`, `createdAt` |
+| GET / POST | `/empresas/{id}/tarefas` | escritório | Tarefas da empresa / cria uma (multipart: `titulo`, `descricao`, `departamento`, `responsavelId`, `prazoInterno`, `prazoLegal`, `anexos[]`) |
+| GET / PUT | `/empresas/{id}/tarefas/{tarefaId}` | escritório | Detalhe com histórico e anexos / edita os dados (JSON, mesmos campos sem anexos) |
+| POST | `/empresas/{id}/tarefas/{tarefaId}/comentarios` | escritório | Comentário com anexos (multipart: `mensagem`, `anexos[]`) |
+| POST | `/empresas/{id}/tarefas/{tarefaId}/status` | escritório | Muda o status (`{ status, mensagem }`) |
+| GET | `/empresas/{id}/tarefas/{tarefaId}/anexos/{anexoId}/download` | escritório | Baixa um anexo |
 
 ### Solicitações de serviço
 
@@ -131,6 +137,14 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 - **Histórico:** abertura, comentários, mudanças de status e atribuições ficam registrados com autor e data; anexos ficam ligados ao item do histórico em que foram enviados.
 - **Número:** sequencial por escritório (`#1`, `#2`...), reservado de forma atômica.
 - **Prazo (SLA):** definido pelo prazo padrão do tipo na abertura e ajustável pelo escritório; `atrasada` indica prazo vencido sem conclusão.
+
+### Tarefas
+
+- **Uso:** controle interno do escritório, por empresa. O cliente não vê tarefas (403).
+- **Campos:** título, descrição, empresa, departamento, responsável (usuário ativo do escritório), prazo interno (obrigatório) e prazo legal (opcional; o interno não pode passar do legal).
+- **Fluxo:** `Pendente → EmAndamento → Concluida / Cancelada`; concluída volta para `EmAndamento` e cancelada para `Pendente`.
+- **Indicadores:** `atrasada` = prazo interno vencido sem finalizar; `prazoLegalVencido` = prazo legal vencido sem finalizar. O painel da empresa traz `tarefasEmAberto` e `tarefasAtrasadas`.
+- **Histórico:** criação, comentários (com anexos), mudanças de status e edições (com o que mudou). O responsável recebe a notificação `TarefaAtribuida` ao ser definido.
 
 ### Notícias e comunicados
 
@@ -201,4 +215,4 @@ Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migr
 
 ## Próximos passos (backlog)
 
-Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), tarefas na página da empresa, editor rico nas notícias, emissão automática de CND, NF-e e tarefas. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
+Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), editor rico nas notícias, emissão automática de CND, NF-e, tarefas recorrentes (obrigações mensais). Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.

@@ -39,6 +39,7 @@ public static class TiposNotificacao
         [TipoNotificacao.NovaSolicitacao] = "Novas solicitações",
         [TipoNotificacao.SolicitacaoAtualizada] = "Atualizações de solicitações",
         [TipoNotificacao.NovaNoticia] = "Novas notícias do escritório",
-        [TipoNotificacao.CertidaoVencimento] = "Certidões (CND) a vencer ou vencidas"
+        [TipoNotificacao.CertidaoVencimento] = "Certidões (CND) a vencer ou vencidas",
+        [TipoNotificacao.TarefaAtribuida] = "Tarefas atribuídas a você"
     };
 }

@@ -212,6 +212,59 @@ public sealed class SolicitacaoAnexoConfiguration : IEntityTypeConfiguration<Sol
     }
 }
 
+public sealed class TarefaConfiguration : IEntityTypeConfiguration<Tarefa>
+{
+    public void Configure(EntityTypeBuilder<Tarefa> b)
+    {
+        b.ToTable("tarefas");
+        b.Property(x => x.Titulo).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Descricao).HasMaxLength(5000);
+        b.Property(x => x.Departamento).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+        b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Responsavel).WithMany().HasForeignKey(x => x.ResponsavelId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.CriadoPor).WithMany().HasForeignKey(x => x.CriadoPorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(x => x.Interacoes).WithOne().HasForeignKey(x => x.TarefaId).OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(x => x.Anexos).WithOne().HasForeignKey(x => x.TarefaId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<Escritorio>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.TenantId, x.Numero }).IsUnique();
+        b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Status });
+        b.HasIndex(x => new { x.TenantId, x.ResponsavelId, x.Status });
+        b.HasIndex(x => new { x.TenantId, x.PrazoInterno });
+    }
+}
+
+public sealed class TarefaInteracaoConfiguration : IEntityTypeConfiguration<TarefaInteracao>
+{
+    public void Configure(EntityTypeBuilder<TarefaInteracao> b)
+    {
+        b.ToTable("tarefa_interacoes");
+        // Id gerado no domínio: sem isso o EF trataria itens novos adicionados à coleção como existentes.
+        b.Property(x => x.Id).ValueGeneratedNever();
+        b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.StatusAnterior).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.StatusNovo).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Mensagem).HasMaxLength(5000);
+        b.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.AutorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.TarefaId, x.CreatedAt });
+    }
+}
+
+public sealed class TarefaAnexoConfiguration : IEntityTypeConfiguration<TarefaAnexo>
+{
+    public void Configure(EntityTypeBuilder<TarefaAnexo> b)
+    {
+        b.ToTable("tarefa_anexos");
+        b.Property(x => x.Id).ValueGeneratedNever();
+        b.Property(x => x.NomeArquivo).HasMaxLength(255).IsRequired();
+        b.Property(x => x.ContentType).HasMaxLength(150).IsRequired();
+        b.Property(x => x.StorageKey).HasMaxLength(500).IsRequired();
+        b.HasOne(x => x.EnviadoPor).WithMany().HasForeignKey(x => x.EnviadoPorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<TarefaInteracao>().WithMany().HasForeignKey(x => x.InteracaoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.TarefaId);
+    }
+}
+
 public sealed class TokenRedefinicaoSenhaConfiguration : IEntityTypeConfiguration<TokenRedefinicaoSenha>
 {
     public void Configure(EntityTypeBuilder<TokenRedefinicaoSenha> b)

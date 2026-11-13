@@ -26,6 +26,11 @@ public sealed class EmpresaPainelRepository(ContixDbContext context) : IEmpresaP
         var emAberto = await abertas.CountAsync(ct);
         var atrasadas = await abertas.CountAsync(s => s.Prazo != null && s.Prazo < hoje, ct);
 
+        var tarefasAbertas = context.Tarefas.AsNoTracking()
+            .Where(t => t.EmpresaId == empresaId && t.Status != StatusTarefa.Concluida && t.Status != StatusTarefa.Cancelada);
+        var tarefasEmAberto = await tarefasAbertas.CountAsync(ct);
+        var tarefasAtrasadas = await tarefasAbertas.CountAsync(t => t.PrazoInterno < hoje, ct);
+
         // Certidão atual de cada tipo = a de validade mais recente.
         var certidoes = await context.Certidoes.AsNoTracking()
             .Where(c => c.EmpresaId == empresaId)
@@ -41,7 +46,9 @@ public sealed class EmpresaPainelRepository(ContixDbContext context) : IEmpresaP
             SolicitacoesEmAberto: emAberto,
             SolicitacoesAtrasadas: atrasadas,
             CertidoesVencidas: atuais.Count(v => Certidao.Calcular(v, hoje) == ValidadeCertidao.Vencida),
-            CertidoesAVencer: atuais.Count(v => Certidao.Calcular(v, hoje) == ValidadeCertidao.AVencer));
+            CertidoesAVencer: atuais.Count(v => Certidao.Calcular(v, hoje) == ValidadeCertidao.AVencer),
+            TarefasEmAberto: tarefasEmAberto,
+            TarefasAtrasadas: tarefasAtrasadas);
     }
 
     public async Task<IReadOnlyList<EventoDocumentoEmpresa>> ListarEventosDocumentosAsync(Guid empresaId, DateTime antesDe, int limite, CancellationToken ct = default) =>
