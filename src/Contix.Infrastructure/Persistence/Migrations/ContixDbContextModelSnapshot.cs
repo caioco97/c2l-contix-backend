@@ -440,6 +440,11 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("documento_id");
 
+                    b.Property<string>("Ip")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip");
+
                     b.Property<DateTime>("OcorridoEm")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ocorrido_em");

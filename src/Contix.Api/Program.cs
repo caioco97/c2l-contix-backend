@@ -26,6 +26,7 @@ try
 
     await app.InicializarBancoAsync();
 
+    app.UseForwardedHeaders();
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseSerilogRequestLogging(o =>
         o.EnrichDiagnosticContext = (diag, http) => diag.Set("UserId", http.User.FindFirst("sub")?.Value));

@@ -96,7 +96,7 @@ public sealed class DocumentoService(
                     AdicionadoPorId = usuarioId,
                     Origem = currentUser.EhCliente ? OrigemDocumento.Cliente : OrigemDocumento.Escritorio
                 };
-                doc.Eventos.Add(DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Upload, usuarioId, agora, $"Pasta {pasta.Nome}"));
+                doc.Eventos.Add(DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Upload, usuarioId, agora, $"Pasta {pasta.Nome}", currentUser.IpAddress));
                 // Quem enviou já conhece o arquivo: não deve aparecer como "não lido" para ele.
                 doc.Leituras.Add(new DocumentoLeitura { DocumentoId = doc.Id, UsuarioId = usuarioId, LidoEm = agora });
                 doc.StorageKey = $"{empresa.TenantId:N}/{empresaId:N}/{doc.Id:N}{Path.GetExtension(arquivo.NomeArquivo).ToLowerInvariant()}";
@@ -139,7 +139,7 @@ public sealed class DocumentoService(
         var usuarioId = currentUser.RequireUserId();
         var agora = clock.UtcNow;
         await documentos.MarcarComoLidosAsync([doc.Id], usuarioId, agora, ct);
-        await documentos.RegistrarEventosAsync([DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Download, usuarioId, agora)], ct);
+        await documentos.RegistrarEventosAsync([DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Download, usuarioId, agora, ip: currentUser.IpAddress)], ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return new ArquivoParaDownload(stream, doc.ContentType, doc.NomeArquivoOriginal);
@@ -172,7 +172,7 @@ public sealed class DocumentoService(
         await documentos.MarcarComoLidosAsync(ids, usuarioId, agora, ct);
         var detalhe = $"Download em lote ({ids.Count} arquivos)";
         await documentos.RegistrarEventosAsync(
-            ids.Select(id => DocumentoEvento.Criar(id, TipoEventoDocumento.Download, usuarioId, agora, detalhe)), ct);
+            ids.Select(id => DocumentoEvento.Criar(id, TipoEventoDocumento.Download, usuarioId, agora, detalhe, currentUser.IpAddress)), ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return new ArquivoParaDownload(zip, "application/zip", $"documentos-{clock.UtcNow:yyyyMMddHHmmss}.zip");
@@ -185,7 +185,7 @@ public sealed class DocumentoService(
         var usuarioId = currentUser.RequireUserId();
         var agora = clock.UtcNow;
         await documentos.MarcarComoLidosAsync([doc.Id], usuarioId, agora, ct);
-        await documentos.RegistrarEventosAsync([DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Visualizacao, usuarioId, agora)], ct);
+        await documentos.RegistrarEventosAsync([DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Visualizacao, usuarioId, agora, ip: currentUser.IpAddress)], ct);
         await unitOfWork.SaveChangesAsync(ct);
     }
 
@@ -199,7 +199,7 @@ public sealed class DocumentoService(
             throw new ForbiddenException("Você só pode excluir documentos enviados por você.");
 
         await documentos.RegistrarEventosAsync(
-            [DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Exclusao, currentUser.RequireUserId(), clock.UtcNow)], ct);
+            [DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Exclusao, currentUser.RequireUserId(), clock.UtcNow, ip: currentUser.IpAddress)], ct);
         documentos.Remove(doc); // soft delete; o arquivo é mantido para auditoria
         await unitOfWork.SaveChangesAsync(ct);
         logger.LogInformation("Documento {DocumentoId} excluído pelo usuário {UsuarioId}", doc.Id, currentUser.UserId);
@@ -250,7 +250,7 @@ public sealed class DocumentoService(
         var agoraEnvio = clock.UtcNow;
         var remetente = currentUser.RequireUserId();
         await documentos.RegistrarEventosAsync(
-            docs.Select(d => DocumentoEvento.Criar(d.Id, TipoEventoDocumento.Envio, remetente, agoraEnvio, detalheEnvio)), ct);
+            docs.Select(d => DocumentoEvento.Criar(d.Id, TipoEventoDocumento.Envio, remetente, agoraEnvio, detalheEnvio, currentUser.IpAddress)), ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         logger.LogInformation("{Quantidade} documento(s) da empresa {EmpresaId} enviados a {Destinatarios} usuário(s)",

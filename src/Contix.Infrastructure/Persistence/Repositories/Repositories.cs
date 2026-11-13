@@ -239,7 +239,7 @@ public sealed class DocumentoRepository(ContixDbContext context) : Repository<Do
             .Where(e => e.DocumentoId == documentoId)
             .OrderByDescending(e => e.OcorridoEm).ThenByDescending(e => e.Id)
             .Select(e => new EventoDocumentoDto(e.Id, e.Tipo, e.OcorridoEm, e.UsuarioId, e.Usuario!.Nome,
-                e.Usuario.Perfil != PerfilUsuario.Cliente, e.Detalhe))
+                e.Usuario.Perfil != PerfilUsuario.Cliente, e.Detalhe, e.Ip))
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<InteracaoUsuarioDocumento>> ListarInteracoesAsync(Guid documentoId, CancellationToken ct = default)
