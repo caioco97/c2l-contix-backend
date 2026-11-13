@@ -155,4 +155,30 @@ public sealed class EmpregadosTests(ContixApiFactory factory)
         Assert.Equal("Desligado", empregado["situacao"]!.GetValue<string>());
         Assert.Equal("2026-12-15", empregado["dataDesligamento"]!.GetValue<string>());
     }
+
+    [Fact]
+    public async Task Ficha_mostra_ferias_afastamento_e_rubricas_do_empregado()
+    {
+        var cliente = await LoginAsync("cliente@contix.dev");
+        var colaborador = await LoginAsync("colaborador@contix.dev");
+        var empresaId = await EmpresaDemoAsync(cliente);
+        var id = await CriarAsync(colaborador, empresaId, "Ficha Teste", NovoCpf());
+        var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        Assert.Equal(HttpStatusCode.Created, (await AbrirAsync(cliente, empresaId, "AvisoFerias",
+            $$"""{"empregadoId":"{{id}}","periodoAquisitivoInicio":"2025-01-01","periodoAquisitivoFim":"2025-12-31","dataInicio":"{{hoje.AddDays(-2):yyyy-MM-dd}}","dias":10}""")).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await AbrirAsync(cliente, empresaId, "Afastamento",
+            $$"""{"empregadoId":"{{id}}","motivo":"Doenca","dataInicio":"2025-03-01","previsaoRetorno":"2025-03-05"}""", anexo: true)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await AbrirAsync(cliente, empresaId, "LancamentoRubricas",
+            $$"""{"competencia":"2026-10-01","lancamentos":[{"empregadoId":"{{id}}","rubrica":"Comissões","valor":300}]}""")).StatusCode);
+
+        var ficha = await JsonAsync(await cliente.GetAsync($"/api/v1/empresas/{empresaId}/empregados/{id}/ficha"));
+        Assert.Equal("Ficha Teste", ficha["empregado"]!["nome"]!.GetValue<string>());
+        Assert.Equal(3, ficha["totalSolicitacoes"]!.GetValue<int>());
+        var feriasHoje = ficha["hoje"]!["feriasEmCurso"]!;
+        Assert.Equal(hoje.AddDays(7).ToString("yyyy-MM-dd"), feriasHoje["fim"]!.GetValue<string>());
+        Assert.Null(ficha["hoje"]!["afastamentoEmCurso"]);
+        Assert.Equal("Doenca", ficha["afastamentos"]![0]!["motivo"]!.GetValue<string>());
+        Assert.Equal(300m, ficha["rubricas"]![0]!["valor"]!.GetValue<decimal>());
+    }
 }

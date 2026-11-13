@@ -1,6 +1,7 @@
 using Contix.Application.Common.Abstractions;
 using Contix.Application.Common.Exceptions;
 using Contix.Application.Features.Empresas;
+using Contix.Application.Features.Solicitacoes;
 using Contix.Domain.Entities;
 using Contix.Domain.Enums;
 using Contix.Domain.ValueObjects;
@@ -15,6 +16,8 @@ public interface IEmpregadoService
 {
     Task<IReadOnlyList<EmpregadoDto>> ListarAsync(Guid empresaId, EmpregadoFiltro filtro, CancellationToken ct = default);
     Task<EmpregadoDto> ObterAsync(Guid empresaId, Guid id, CancellationToken ct = default);
+    /// <summary>Cadastro mais férias, afastamentos, desligamento e rubricas vindos das solicitações.</summary>
+    Task<FichaEmpregadoDto> ObterFichaAsync(Guid empresaId, Guid id, CancellationToken ct = default);
     Task<EmpregadoDto> CriarAsync(Guid empresaId, SalvarEmpregadoRequest request, CancellationToken ct = default);
     Task<EmpregadoDto> AtualizarAsync(Guid empresaId, Guid id, SalvarEmpregadoRequest request, CancellationToken ct = default);
     Task ExcluirAsync(Guid empresaId, Guid id, CancellationToken ct = default);
@@ -22,10 +25,20 @@ public interface IEmpregadoService
 
 public sealed class EmpregadoService(
     IEmpregadoRepository empregados,
+    ISolicitacaoRepository solicitacoes,
     IAcessoEmpresaService acesso,
     IUnitOfWork unitOfWork,
-    ICurrentUser currentUser) : IEmpregadoService
+    ICurrentUser currentUser,
+    IDateTimeProvider clock) : IEmpregadoService
 {
+    public async Task<FichaEmpregadoDto> ObterFichaAsync(Guid empresaId, Guid id, CancellationToken ct = default)
+    {
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
+        var empregado = await CarregarAsync(empresaId, id, ct);
+        var doEmpregado = await solicitacoes.ListarDoEmpregadoAsync(empresaId, id, ct);
+        return FichaEmpregado.Montar(empregado, doEmpregado, DateOnly.FromDateTime(clock.UtcNow));
+    }
+
     public async Task<IReadOnlyList<EmpregadoDto>> ListarAsync(Guid empresaId, EmpregadoFiltro filtro, CancellationToken ct = default)
     {
         await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);

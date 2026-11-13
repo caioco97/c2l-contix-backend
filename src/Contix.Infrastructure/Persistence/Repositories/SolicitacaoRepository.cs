@@ -21,12 +21,7 @@ public sealed class SolicitacaoRepository(ContixDbContext context) : Repository<
             q = q.Where(s => s.Status != StatusSolicitacao.Concluida && s.Status != StatusSolicitacao.Cancelada);
         if (filtro.Departamento is { } departamento) q = q.Where(s => s.Departamento == departamento);
         if (filtro.ResponsavelId is { } responsavelId) q = q.Where(s => s.ResponsavelId == responsavelId);
-        if (filtro.EmpregadoId is { } empregadoId)
-        {
-            var lancamento = $$"""{"lancamentos":[{"empregadoId":"{{empregadoId}}"}]}""";
-            q = q.Where(s => s.EmpregadoId == empregadoId
-                             || (s.Tipo == TipoSolicitacao.LancamentoRubricas && EF.Functions.JsonContains(s.Dados!, lancamento)));
-        }
+        if (filtro.EmpregadoId is { } empregadoId) q = DoEmpregado(q, empregadoId);
         if (filtro.SemResponsavel == true) q = q.Where(s => s.ResponsavelId == null);
         if (filtro.Atrasadas == true)
             q = q.Where(s => s.Prazo != null && s.Prazo < hoje
@@ -66,6 +61,17 @@ public sealed class SolicitacaoRepository(ContixDbContext context) : Repository<
                 Items = t.Result.Items.Select(i => i with { TipoNome = CatalogoSolicitacoes.Obter(i.Tipo).Nome }).ToList()
             }, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
     }
+
+    private static IQueryable<Solicitacao> DoEmpregado(IQueryable<Solicitacao> q, Guid empregadoId)
+    {
+        var lancamento = $$"""{"lancamentos":[{"empregadoId":"{{empregadoId}}"}]}""";
+        return q.Where(s => s.EmpregadoId == empregadoId
+                            || (s.Tipo == TipoSolicitacao.LancamentoRubricas && EF.Functions.JsonContains(s.Dados!, lancamento)));
+    }
+
+    public async Task<IReadOnlyList<Solicitacao>> ListarDoEmpregadoAsync(Guid empresaId, Guid empregadoId, CancellationToken ct = default) =>
+        await DoEmpregado(Set.AsNoTracking().Where(s => s.EmpresaId == empresaId), empregadoId)
+            .OrderByDescending(s => s.CreatedAt).Take(500).ToListAsync(ct);
 
     public Task<Solicitacao?> ObterCompletaAsync(Guid empresaId, Guid solicitacaoId, CancellationToken ct = default) =>
         Set.Include(s => s.Empresa)
