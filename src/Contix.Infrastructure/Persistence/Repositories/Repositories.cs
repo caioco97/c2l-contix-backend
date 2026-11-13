@@ -52,6 +52,18 @@ public sealed class UsuarioRepository(ContixDbContext context) : Repository<Usua
             .Where(u => u.Perfil == PerfilUsuario.Cliente && u.Empresas.Any(e => e.EmpresaId == empresaId))
             .ToListAsync(ct);
 
+    public Task<bool> PossuiEmpresaAtivaIgnorandoTenantAsync(Guid usuarioId, CancellationToken ct = default) =>
+        Context.UsuarioEmpresas.IgnoreQueryFilters()
+            .AnyAsync(v => v.UsuarioId == usuarioId && Context.Empresas.IgnoreQueryFilters().Any(e => e.Id == v.EmpresaId && !e.IsDeleted), ct);
+
+    public async Task<IReadOnlyList<Guid>> ListarClientesExclusivosDaEmpresaAsync(Guid empresaId, CancellationToken ct = default) =>
+        await Set.AsNoTracking()
+            .Where(u => u.Perfil == PerfilUsuario.Cliente
+                        && u.Empresas.Any(v => v.EmpresaId == empresaId)
+                        && !u.Empresas.Any(v => v.EmpresaId != empresaId && Context.Empresas.Any(e => e.Id == v.EmpresaId)))
+            .Select(u => u.Id)
+            .ToListAsync(ct);
+
     public Task<PagedResult<Usuario>> PesquisarAsync(UsuarioFiltro filtro, CancellationToken ct = default)
     {
         var q = Set.AsNoTracking().Include(u => u.Empresas).AsQueryable();

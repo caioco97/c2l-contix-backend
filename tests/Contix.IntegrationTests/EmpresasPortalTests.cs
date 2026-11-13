@@ -217,6 +217,66 @@ public sealed partial class EmpresasPortalTests(ContixApiFactory factory)
     }
 
     [Fact]
+    public async Task Excluir_empresa_esconde_das_listas_e_encerra_o_portal_de_quem_so_tinha_ela()
+    {
+        var admin = await LoginAsync("admin@contix.dev");
+        var colaborador = await LoginAsync("colaborador@contix.dev");
+        var a = await NovaEmpresaAsync(admin, "Excluir A Ltda");
+        var b = await NovaEmpresaAsync(admin, "Excluir B Ltda");
+        var (soA, _, emailSoA) = await ConvidarEAceitarAsync(admin, a, new { modulos = new[] { "Documentos", "Solicitacoes" }, todasAsPastas = true });
+        var (doisVinculos, usuarioAB, emailAB) = await ConvidarEAceitarAsync(admin, a, new { modulos = new[] { "Documentos" }, todasAsPastas = true });
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync($"/api/v1/empresas/{b}/usuarios",
+            new { nome = "x", email = emailAB, modulos = new[] { "Documentos" }, todasAsPastas = true })).StatusCode);
+        var pastas = await PastasAsync(admin, a);
+        await UploadAsync(admin, a, pastas["Fiscal"], "guia.txt");
+        Assert.Equal(HttpStatusCode.Created, (await soA.PostAsync($"/api/v1/empresas/{a}/solicitacoes", new MultipartFormDataContent
+        {
+            { new StringContent("Geral"), "tipo" }, { new StringContent("Pedido da empresa A"), "assunto" }, { new StringContent("Fiscal"), "departamento" },
+            { new StringContent("Texto"), "descricao" }
+        })).StatusCode);
+
+        // Só o administrador exclui.
+        Assert.Equal(HttpStatusCode.Forbidden, (await colaborador.DeleteAsync($"/api/v1/empresas/{a}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/v1/empresas/{a}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.DeleteAsync($"/api/v1/empresas/{a}")).StatusCode);
+
+        // Some da lista e das consultas, inclusive das solicitações gerais.
+        var lista = (await JsonAsync(await admin.GetAsync("/api/v1/empresas?pageSize=100")))["items"]!.AsArray();
+        Assert.DoesNotContain(lista, e => e!["id"]!.GetValue<string>() == a);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/v1/empresas/{a}")).StatusCode);
+        var solicitacoes = (await JsonAsync(await admin.GetAsync("/api/v1/solicitacoes?pageSize=100")))["items"]!.AsArray();
+        Assert.DoesNotContain(solicitacoes, s => s!["empresaId"]!.GetValue<string>() == a);
+
+        // Os dados continuam no banco, com a autoria da exclusão.
+        var excluida = await NoBancoAsync(db => db.Empresas.IgnoreQueryFilters().SingleAsync(e => e.Id == Guid.Parse(a)));
+        Assert.True(excluida.IsDeleted);
+        Assert.NotNull(excluida.DeletedAt);
+        Assert.NotNull(excluida.ExcluidaPorId);
+        Assert.Equal(1, await NoBancoAsync(db => db.Documentos.IgnoreQueryFilters().CountAsync(d => d.EmpresaId == Guid.Parse(a))));
+
+        // Quem só tinha a empresa excluída não entra mais; quem tem outra empresa segue com ela.
+        var login = await factory.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { email = emailSoA, senha = NovaSenha });
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+        Assert.Contains("acesso ao portal foi encerrado", await login.Content.ReadAsStringAsync());
+        Assert.Equal(0, await NoBancoAsync(db => db.RefreshTokens.CountAsync(t =>
+            t.RevogadoEm == null && db.Usuarios.IgnoreQueryFilters().Any(u => u.Id == t.UsuarioId && u.Email == emailSoA))));
+        _ = soA;
+
+        var outra = await LoginAsync(emailAB, NovaSenha);
+        var empresasDoUsuario = (await JsonAsync(await outra.GetAsync("/api/v1/empresas")))["items"]!.AsArray();
+        Assert.Equal([b], empresasDoUsuario.Select(e => e!["id"]!.GetValue<string>()));
+        Assert.Equal(HttpStatusCode.NotFound, (await doisVinculos.GetAsync($"/api/v1/empresas/{a}/documentos")).StatusCode);
+        _ = usuarioAB;
+
+        // O CNPJ fica livre para um novo cadastro.
+        var cnpj = excluida.Documento;
+        Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/v1/empresas", new
+        {
+            razaoSocial = "Excluir A Recadastrada", documento = cnpj, regimeTributario = "SimplesNacional", situacao = "Ativa"
+        })).StatusCode);
+    }
+
+    [Fact]
     public async Task Usuario_criado_sem_senha_recebe_convite_e_pode_reenviar()
     {
         var admin = await LoginAsync("admin@contix.dev");

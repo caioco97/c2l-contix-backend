@@ -27,6 +27,7 @@ public sealed class AuthService(
     ILogger<AuthService> logger) : IAuthService
 {
     private const string CredenciaisInvalidas = "E-mail ou senha inválidos.";
+    private const string SemEmpresaAtiva = "Seu acesso ao portal foi encerrado. Fale com o seu escritório contábil.";
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
@@ -46,6 +47,9 @@ public sealed class AuthService(
             logger.LogWarning("Falha de login para o usuário {UsuarioId}", usuario.Id);
             throw new UnauthorizedException(CredenciaisInvalidas);
         }
+
+        if (!await PodeEntrarAsync(usuario, ct))
+            throw new UnauthorizedException(SemEmpresaAtiva);
 
         usuario.RegistrarLoginComSucesso(agora);
         var response = await EmitirTokensAsync(usuario, Guid.NewGuid(), ct);
@@ -76,7 +80,7 @@ public sealed class AuthService(
             throw new UnauthorizedException("Refresh token expirado.");
 
         var usuario = await usuarios.GetByIdIgnorandoTenantAsync(atual.UsuarioId, ct);
-        if (usuario is null || !usuario.Ativo)
+        if (usuario is null || !usuario.Ativo || !await PodeEntrarAsync(usuario, ct))
         {
             atual.Revogar(agora, "Usuário inativo");
             await unitOfWork.SaveChangesAsync(ct);
@@ -201,6 +205,10 @@ public sealed class AuthService(
         await unitOfWork.SaveChangesAsync(ct);
         logger.LogInformation("Senha redefinida para o usuário {UsuarioId}", usuario.Id);
     }
+
+    /// <summary>Usuário do cliente só entra enquanto tiver ao menos uma empresa não excluída.</summary>
+    private async Task<bool> PodeEntrarAsync(Usuario usuario, CancellationToken ct) =>
+        usuario.Perfil != PerfilUsuario.Cliente || await usuarios.PossuiEmpresaAtivaIgnorandoTenantAsync(usuario.Id, ct);
 
     private static string FormatarValidade(TimeSpan t) =>
         t.TotalMinutes < 60 ? $"{(int)t.TotalMinutes} minutos"

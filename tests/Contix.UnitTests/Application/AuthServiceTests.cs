@@ -74,6 +74,35 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task Login_de_usuario_do_cliente_sem_empresa_ativa_e_recusado()
+    {
+        var usuario = NovoUsuario();
+        usuario.Perfil = PerfilUsuario.Cliente;
+        _usuarios.GetByEmailIgnorandoTenantAsync("ana@x.dev").Returns(usuario);
+        _usuarios.PossuiEmpresaAtivaIgnorandoTenantAsync(usuario.Id).Returns(false);
+        _hasher.Verify("h", "Senha@123").Returns(true);
+
+        var erro = await Assert.ThrowsAsync<UnauthorizedException>(() => _sut.LoginAsync(new LoginRequest("ana@x.dev", "Senha@123")));
+
+        Assert.Contains("encerrado", erro.Message);
+        await _tokens.DidNotReceiveWithAnyArgs().AddAsync(default!);
+    }
+
+    [Fact]
+    public async Task Refresh_de_usuario_do_cliente_sem_empresa_ativa_revoga_o_token()
+    {
+        var usuario = NovoUsuario();
+        usuario.Perfil = PerfilUsuario.Cliente;
+        var atual = new RefreshToken { UsuarioId = usuario.Id, Familia = Guid.NewGuid(), TokenHash = "hash-atual", ExpiraEm = _agora.AddDays(1) };
+        _tokens.GetByHashAsync("hash-atual").Returns(atual);
+        _usuarios.GetByIdIgnorandoTenantAsync(usuario.Id).Returns(usuario);
+
+        await Assert.ThrowsAsync<UnauthorizedException>(() => _sut.RefreshAsync(new RefreshTokenRequest("atual")));
+
+        Assert.False(atual.EstaAtivo(_agora));
+    }
+
+    [Fact]
     public async Task Reutilizar_refresh_revogado_revoga_toda_a_cadeia()
     {
         var familia = Guid.NewGuid();
