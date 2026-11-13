@@ -47,7 +47,7 @@ public static class LeitorXmlNFe
         return raiz.Name.LocalName switch
         {
             "nfeProc" => LerNotaCompleta(raiz.Element(N + "NFe") ?? throw Invalido(), raiz.Element(N + "protNFe")),
-            "NFe" => LerNotaCompleta(raiz, null),
+            "NFe" => throw SemProtocolo(),
             "resNFe" => LerResumo(raiz),
             "resEvento" => new EventoLido(Obrigatorio(raiz, "chNFe"), Obrigatorio(raiz, "tpEvento")),
             "procEventoNFe" => LerProcEvento(raiz),
@@ -71,7 +71,13 @@ public static class LeitorXmlNFe
 
         var infProt = prot?.Element(N + "infProt");
         var cStat = (string?)infProt?.Element(N + "cStat");
-        var situacao = cStat is "110" or "301" or "302" or "303" ? SituacaoNFe.Denegada : SituacaoNFe.Autorizada;
+        // Só vale nota com protocolo da SEFAZ: 100/150 autorizada, 110/301/302/303 denegada.
+        var situacao = cStat switch
+        {
+            "100" or "150" => SituacaoNFe.Autorizada,
+            "110" or "301" or "302" or "303" => SituacaoNFe.Denegada,
+            _ => throw SemProtocolo()
+        };
 
         var dados = new DadosNotaFiscal(
             ValidarChave(chave),
@@ -114,6 +120,9 @@ public static class LeitorXmlNFe
         var inf = proc.Element(N + "evento")?.Element(N + "infEvento") ?? throw Invalido();
         return new EventoLido(Obrigatorio(inf, "chNFe"), Obrigatorio(inf, "tpEvento"));
     }
+
+    private static FormatException SemProtocolo() =>
+        new("A NF-e não tem protocolo de autorização da SEFAZ. Envie o XML autorizado (nfeProc, com protNFe).");
 
     private static string ValidarChave(string chave) =>
         chave.Length == 44 && chave.All(char.IsAsciiDigit) ? chave : throw new FormatException("Chave de acesso da NF-e inválida.");

@@ -130,4 +130,11 @@ public sealed class IntegracaoSefazRepository(ContixDbContext context) : IIntegr
     public Task<SincronizacaoNFe?> ObterParaProcessarAsync(Guid sincronizacaoId, CancellationToken ct = default) =>
         context.SincronizacoesNFe.IgnoreQueryFilters().Include(s => s.Empresa)
             .FirstOrDefaultAsync(s => s.Id == sincronizacaoId && !s.IsDeleted, ct);
+
+    public async Task<IReadOnlyList<NotaFiscal>> ListarPendentesCienciaAsync(Guid empresaId, DateTime emitidasDesde, int limite, CancellationToken ct = default) =>
+        await context.NotasFiscais.IgnoreQueryFilters()
+            .Where(n => n.EmpresaId == empresaId && !n.IsDeleted && n.Origem == OrigemNotaFiscal.Sefaz && !n.XmlCompleto
+                        && n.Situacao == SituacaoNFe.Autorizada && n.Manifestacao == ManifestacaoNFe.SemManifestacao
+                        && n.DataEmissao >= emitidasDesde)
+            .OrderByDescending(n => n.DataEmissao).Take(limite).ToListAsync(ct);
 }

@@ -62,6 +62,32 @@ public class LeitorXmlNFeTests
         var ex = Assert.Throws<FormatException>(() => LeitorXmlNFe.Ler(xml));
         Assert.Contains(mensagem, ex.Message);
     }
+
+    [Theory]
+    [InlineData(null)]   // NFe sem protNFe: rascunho, não foi autorizada
+    [InlineData("204")]  // rejeição (duplicidade)
+    public void Recusa_nfe_sem_protocolo_de_autorizacao(string? cStat)
+    {
+        var chave = CertificadoTeste.Chave("11222333000181", 4321);
+        var proc = CertificadoTeste.NfeProc(chave, "11222333000181", "44555666000177");
+        var xml = cStat is null
+            ? System.Text.RegularExpressions.Regex.Replace(proc, @"\s*<protNFe.*</protNFe>", "")
+            : proc.Replace("<cStat>100</cStat>", $"<cStat>{cStat}</cStat>");
+        var ex = Assert.Throws<FormatException>(() => LeitorXmlNFe.Ler(xml));
+        Assert.Contains("protocolo de autorização", ex.Message);
+
+        var soNfe = System.Xml.Linq.XDocument.Parse(proc).Root!.Elements().First().ToString();
+        Assert.Contains("protocolo de autorização", Assert.Throws<FormatException>(() => LeitorXmlNFe.Ler(soNfe)).Message);
+    }
+
+    [Fact]
+    public void Nota_denegada_tem_protocolo_e_e_lida_como_denegada()
+    {
+        var chave = CertificadoTeste.Chave("11222333000181", 4322);
+        var xml = CertificadoTeste.NfeProc(chave, "11222333000181", "44555666000177").Replace("<cStat>100</cStat>", "<cStat>302</cStat>");
+        var nota = Assert.IsType<NotaLida>(LeitorXmlNFe.Ler(xml));
+        Assert.Equal(SituacaoNFe.Denegada, nota.Dados.Situacao);
+    }
 }
 
 public class NotaFiscalDominioTests

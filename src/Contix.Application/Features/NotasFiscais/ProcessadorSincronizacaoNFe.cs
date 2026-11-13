@@ -32,6 +32,10 @@ public sealed class ProcessadorSincronizacaoNFe(
     private const int Lote = 50;
     /// <summary>Sem certificado válido não adianta tentar de novo logo.</summary>
     private static readonly TimeSpan EsperaSemCertificado = TimeSpan.FromHours(12);
+    /// <summary>Ciências automáticas por execução, contando as que ficaram pendentes de execuções anteriores.</summary>
+    public const int MaximoCienciasPorExecucao = 20;
+    /// <summary>Prazo da SEFAZ para a Ciência da Operação: 180 dias da autorização.</summary>
+    private static readonly TimeSpan PrazoCiencia = TimeSpan.FromDays(180);
 
     public async Task<IReadOnlyList<Guid>> ListarProntasAsync(CancellationToken ct = default) =>
         sefaz.Habilitado ? await repositorio.ListarProntasAsync(clock.UtcNow, Lote, ct) : [];
@@ -70,6 +74,7 @@ public sealed class ProcessadorSincronizacaoNFe(
         }
 
         var recebidos = 0;
+        var comunicou = false;
         for (var i = 0; i < MaximoConsultasPorExecucao && !ct.IsCancellationRequested; i++)
         {
             RetornoDistribuicao retorno;
@@ -84,8 +89,8 @@ public sealed class ProcessadorSincronizacaoNFe(
                 await unitOfWork.SaveChangesAsync(ct);
                 break;
             }
+            comunicou = true;
 
-            var resumosNovos = new List<NotaFiscal>();
             foreach (var doc in retorno.Documentos.OrderBy(d => d.Nsu))
             {
                 DocumentoNFe lido;
@@ -95,8 +100,7 @@ public sealed class ProcessadorSincronizacaoNFe(
                     logger.LogInformation("Documento NSU {Nsu} ({Schema}) da empresa {EmpresaId} ignorado: {Motivo}", doc.Nsu, doc.Schema, empresa.Id, ex.Message);
                     continue;
                 }
-                var r = await registro.RegistrarAsync(empresa, lido, doc.Xml, OrigemNotaFiscal.Sefaz, doc.Nsu, ignorarTenant: true, ct);
-                if (r is { Resultado: ResultadoRegistroNFe.Criada, Nota: { XmlCompleto: false } nova }) resumosNovos.Add(nova);
+                await registro.RegistrarAsync(empresa, lido, doc.Xml, OrigemNotaFiscal.Sefaz, doc.Nsu, ignorarTenant: true, ct);
             }
 
             sinc.RegistrarRetorno(retorno.CStat, retorno.Motivo, retorno.UltimoNsu, retorno.MaxNsu, retorno.Documentos.Count, clock.UtcNow);
@@ -111,18 +115,20 @@ public sealed class ProcessadorSincronizacaoNFe(
             logger.LogInformation("Distribuição DF-e da empresa {EmpresaId}: cStat {CStat} ({Motivo}), {Documentos} documentos, NSU {Ult}/{Max}",
                 empresa.Id, retorno.CStat, retorno.Motivo, retorno.Documentos.Count, retorno.UltimoNsu, retorno.MaxNsu);
 
-            if (sinc.CienciaAutomatica && resumosNovos.Count > 0)
-                await DarCienciaAsync(a1!, empresa, resumosNovos, ct);
-
             if (!(retorno.CStat == "138" && sinc.UltimoNsu < sinc.MaxNsu)) break;
         }
+
+        // Depois da busca: inclui os resumos cuja ciência falhou antes (SEFAZ fora do ar, rede), já que o NSU deles ficou para trás.
+        if (comunicou && sinc.CienciaAutomatica && !ct.IsCancellationRequested)
+            await DarCienciaAsync(a1!, empresa, ct);
         return recebidos;
     }
 
-    /// <summary>Ciência da Operação nas notas novas: a SEFAZ libera o XML completo, que chega numa próxima busca.</summary>
-    private async Task DarCienciaAsync(CertificadoA1 a1, Empresa empresa, IReadOnlyList<NotaFiscal> notas, CancellationToken ct)
+    /// <summary>Ciência da Operação nos resumos sem manifestação: a SEFAZ libera o XML completo, que chega numa próxima busca.</summary>
+    private async Task DarCienciaAsync(CertificadoA1 a1, Empresa empresa, CancellationToken ct)
     {
-        foreach (var nota in notas.Where(n => n.Situacao == SituacaoNFe.Autorizada && n.Manifestacao == ManifestacaoNFe.SemManifestacao))
+        var notas = await repositorio.ListarPendentesCienciaAsync(empresa.Id, clock.UtcNow - PrazoCiencia, MaximoCienciasPorExecucao, ct);
+        foreach (var nota in notas)
         {
             try
             {

@@ -35,4 +35,7 @@ public interface IIntegracaoSefazRepository
     Task<IReadOnlyList<Guid>> ListarProntasAsync(DateTime agora, int limite, CancellationToken ct = default);
     /// <summary>Job: a busca rastreada e com a empresa carregada, fora do filtro de tenant.</summary>
     Task<SincronizacaoNFe?> ObterParaProcessarAsync(Guid sincronizacaoId, CancellationToken ct = default);
+    /// <summary>Job: resumos vindos da SEFAZ, autorizados e ainda sem manifestação, emitidos a partir de <paramref name="emitidasDesde"/>
+    /// (as mais recentes primeiro, para uma recusa antiga não travar as novas), para dar a ciência automática que ficou pendente.</summary>
+    Task<IReadOnlyList<NotaFiscal>> ListarPendentesCienciaAsync(Guid empresaId, DateTime emitidasDesde, int limite, CancellationToken ct = default);
 }
