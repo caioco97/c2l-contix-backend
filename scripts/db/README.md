@@ -10,15 +10,18 @@ scripts/db/zerar-banco.sh --com-arquivos  # também apaga os arquivos do storage
 
 Para manter outro usuário: `ADMIN_NOME="Nome do Usuário" scripts/db/zerar-banco.sh`.
 
-No Windows sem Bash (PowerShell), rode o SQL direto:
+No Windows (PowerShell):
 
 ```powershell
-Get-Content scripts/db/zerar-banco.sql | docker compose exec -T db psql -U contix -d contix -v confirmar=ZERAR -f -
+powershell -ExecutionPolicy Bypass -File scripts\db\zerar-banco.ps1               # pede para digitar ZERAR
+powershell -ExecutionPolicy Bypass -File scripts\db\zerar-banco.ps1 -ComArquivos  # também apaga o storage
 ```
+
+(`-ExecutionPolicy Bypass` vale só para essa execução; o Windows bloqueia `.ps1` por padrão.)
 
 ## Proteções
 
-- O `.sh` só roda com `ASPNETCORE_ENVIRONMENT=Development` no `.env` e com o serviço `db` do compose no ar, e pede para digitar `ZERAR`.
+- O `.sh`/`.ps1` só rodam com `ASPNETCORE_ENVIRONMENT=Development` no `.env` e com o serviço `db` do compose no ar, e pede para digitar `ZERAR`.
 - O `.sql` exige `-v confirmar=ZERAR`, recusa conexões que não sejam locais (socket ou 127.0.0.1, como no `docker compose exec db psql`) e exige exatamente um usuário ativo com o nome informado.
 - Tudo roda numa única transação: qualquer erro desfaz a operação inteira. O `TRUNCATE` é feito sem `CASCADE`, então uma FK nova apontando para `usuarios`/`escritorios` faz o script falhar em vez de apagar o que não deve.
 

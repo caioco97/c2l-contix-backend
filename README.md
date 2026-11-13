@@ -54,6 +54,8 @@ CONTIX_TEST_CONNECTION="Host=localhost;Database=contix_tests;Username=contix;Pas
 scripts/db/zerar-banco.sh   # apaga tudo, mantendo só o usuário "Admin C2L Tech"
 ```
 
+No Windows: `powershell -ExecutionPolicy Bypass -File scripts\db\zerar-banco.ps1`.
+
 Destrutivo. Detalhes, proteções e limpeza dos arquivos do storage em [scripts/db/README.md](scripts/db/README.md).
 
 ### Migrations
