@@ -672,6 +672,16 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("apelido");
 
+                    b.Property<string>("CorPrimaria")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("cor_primaria");
+
+                    b.Property<string>("CorSecundaria")
+                        .HasMaxLength(7)
+                        .HasColumnType("character varying(7)")
+                        .HasColumnName("cor_secundaria");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -708,6 +718,20 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
+
+                    b.Property<DateTime?>("LogoAtualizadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("logo_atualizado_em");
+
+                    b.Property<string>("LogoContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("logo_content_type");
+
+                    b.Property<string>("LogoStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("logo_storage_key");
 
                     b.Property<string>("NomeFantasia")
                         .HasMaxLength(200)

@@ -27,6 +27,16 @@ public class Empresa : TenantEntity
     /// <summary>Usuário do escritório que excluiu a empresa (exclusão lógica).</summary>
     public Guid? ExcluidaPorId { get; set; }
 
+    /// <summary>Cor principal do portal desta empresa (#RRGGBB). Nula usa a cor padrão do Contix.</summary>
+    public string? CorPrimaria { get; set; }
+    /// <summary>Cor de destaque do portal desta empresa (#RRGGBB).</summary>
+    public string? CorSecundaria { get; set; }
+    /// <summary>Chave do logotipo no armazenamento de arquivos.</summary>
+    public string? LogoStorageKey { get; set; }
+    public string? LogoContentType { get; set; }
+    /// <summary>Quando o logotipo mudou (usado pelo front para renovar o cache da imagem).</summary>
+    public DateTime? LogoAtualizadoEm { get; set; }
+
     public ICollection<Pasta> Pastas { get; set; } = new List<Pasta>();
     public ICollection<UsuarioEmpresa> Usuarios { get; set; } = new List<UsuarioEmpresa>();
 

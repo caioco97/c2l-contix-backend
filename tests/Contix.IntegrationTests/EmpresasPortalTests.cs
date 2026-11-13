@@ -96,6 +96,68 @@ public sealed partial class EmpresasPortalTests(ContixApiFactory factory)
     }
 
     [Fact]
+    public async Task Identidade_visual_da_empresa_chega_ao_portal()
+    {
+        var colaborador = await LoginAsync("colaborador@contix.dev");
+        var empresaId = await NovaEmpresaAsync(colaborador, "Marca Própria Ltda");
+        var (cliente, _, _) = await ConvidarEAceitarAsync(colaborador, empresaId,
+            new { modulos = new[] { "Documentos" }, todasAsPastas = true });
+
+        // Cores inválidas são recusadas.
+        Assert.Equal(HttpStatusCode.BadRequest, (await colaborador.PutAsJsonAsync(
+            $"/api/v1/empresas/{empresaId}/identidade-visual", new { corPrimaria = "azul" })).StatusCode);
+
+        var cores = await colaborador.PutAsJsonAsync($"/api/v1/empresas/{empresaId}/identidade-visual",
+            new { corPrimaria = "#1E40AF", corSecundaria = "#f59e0b" });
+        Assert.Equal(HttpStatusCode.OK, cores.StatusCode);
+        Assert.Equal("#1e40af", (await JsonAsync(cores))["corPrimaria"]!.GetValue<string>());
+
+        // Só imagens PNG/JPG/WEBP.
+        using (var svg = new MultipartFormDataContent
+               { { new ByteArrayContent("<svg/>"u8.ToArray()) { Headers = { ContentType = new("image/svg+xml") } }, "arquivo", "logo.svg" } })
+            Assert.Equal(HttpStatusCode.BadRequest, (await colaborador.PutAsync($"/api/v1/empresas/{empresaId}/identidade-visual/logo", svg)).StatusCode);
+
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
+        using (var form = new MultipartFormDataContent
+               { { new ByteArrayContent(png) { Headers = { ContentType = new("image/png") } }, "arquivo", "logo.png" } })
+        {
+            var r = await colaborador.PutAsync($"/api/v1/empresas/{empresaId}/identidade-visual/logo", form);
+            Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+            Assert.True((await JsonAsync(r))["possuiLogo"]!.GetValue<bool>());
+        }
+
+        // O portal recebe a identidade na lista de empresas e baixa o logotipo.
+        var empresa = (await JsonAsync(await cliente.GetAsync("/api/v1/empresas")))["items"]!.AsArray().Single()!;
+        var visual = empresa["identidadeVisual"]!;
+        Assert.Equal("#1e40af", visual["corPrimaria"]!.GetValue<string>());
+        Assert.Equal("#f59e0b", visual["corSecundaria"]!.GetValue<string>());
+        Assert.True(visual["possuiLogo"]!.GetValue<bool>());
+        Assert.NotNull(visual["logoVersao"]);
+
+        var logo = await cliente.GetAsync($"/api/v1/empresas/{empresaId}/identidade-visual/logo");
+        Assert.Equal(HttpStatusCode.OK, logo.StatusCode);
+        Assert.Equal("image/png", logo.Content.Headers.ContentType!.MediaType);
+        Assert.Equal(png, await logo.Content.ReadAsByteArrayAsync());
+
+        // O cliente não altera a identidade visual.
+        Assert.Equal(HttpStatusCode.Forbidden, (await cliente.PutAsJsonAsync(
+            $"/api/v1/empresas/{empresaId}/identidade-visual", new { corPrimaria = "#000000" })).StatusCode);
+
+        // Outra empresa não enxerga o logotipo desta.
+        var outro = await LoginAsync("cliente@contix.dev");
+        Assert.Equal(HttpStatusCode.NotFound, (await outro.GetAsync($"/api/v1/empresas/{empresaId}/identidade-visual/logo")).StatusCode);
+
+        // Remover o logotipo e as cores volta ao padrão.
+        Assert.Equal(HttpStatusCode.OK, (await colaborador.DeleteAsync($"/api/v1/empresas/{empresaId}/identidade-visual/logo")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await cliente.GetAsync($"/api/v1/empresas/{empresaId}/identidade-visual/logo")).StatusCode);
+        var limpa = await JsonAsync(await colaborador.PutAsJsonAsync($"/api/v1/empresas/{empresaId}/identidade-visual",
+            new { corPrimaria = (string?)null, corSecundaria = "" }));
+        Assert.Null(limpa["corPrimaria"]);
+        Assert.Null(limpa["corSecundaria"]);
+        Assert.False(limpa["possuiLogo"]!.GetValue<bool>());
+    }
+
+    [Fact]
     public async Task Convite_por_email_e_permissao_por_modulo()
     {
         var colaborador = await LoginAsync("colaborador@contix.dev");
