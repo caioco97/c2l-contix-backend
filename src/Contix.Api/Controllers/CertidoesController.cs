@@ -1,5 +1,6 @@
 using Contix.Api.Infrastructure;
 using Contix.Application.Features.Certidoes;
+using Contix.Application.Features.Certidoes.Emissao;
 using Contix.Application.Features.Documentos;
 using Contix.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -9,8 +10,36 @@ namespace Contix.Api.Controllers;
 
 /// <summary>Certidões negativas (CND): cadastro pelo escritório, consulta e download pelo cliente, painel de vencimentos.</summary>
 [Route("api/v1")]
-public sealed class CertidoesController(ICertidaoService service) : ApiControllerBase
+public sealed class CertidoesController(ICertidaoService service, IEmissaoCertidaoService emissao) : ApiControllerBase
 {
+    /// <summary>Configuração da emissão automática da empresa e o que a integração deste ambiente suporta.</summary>
+    [HttpGet("empresas/{empresaId:guid}/certidoes/emissao-automatica")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(ConfiguracaoEmissaoDto), StatusCodes.Status200OK)]
+    public Task<ConfiguracaoEmissaoDto> ObterEmissaoAutomatica(Guid empresaId, CancellationToken ct) =>
+        emissao.ObterConfiguracaoAsync(empresaId, ct);
+
+    /// <summary>Liga/desliga a emissão automática, escolhe os tipos, a antecedência da renovação e o responsável pelas falhas.</summary>
+    [HttpPut("empresas/{empresaId:guid}/certidoes/emissao-automatica")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(ConfiguracaoEmissaoDto), StatusCodes.Status200OK)]
+    public Task<ConfiguracaoEmissaoDto> SalvarEmissaoAutomatica(Guid empresaId, SalvarConfiguracaoEmissaoCommand command, CancellationToken ct) =>
+        emissao.SalvarConfiguracaoAsync(empresaId, command, ct);
+
+    /// <summary>Histórico de emissões automáticas da empresa (mais recentes primeiro).</summary>
+    [HttpGet("empresas/{empresaId:guid}/certidoes/emissoes")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(IReadOnlyList<EmissaoCertidaoDto>), StatusCodes.Status200OK)]
+    public Task<IReadOnlyList<EmissaoCertidaoDto>> ListarEmissoes(Guid empresaId, [FromQuery] int limite = 30, CancellationToken ct = default) =>
+        emissao.ListarAsync(empresaId, limite, ct);
+
+    /// <summary>"Emitir agora": coloca na fila a emissão dos tipos informados (vazio: os configurados). Responde 202.</summary>
+    [HttpPost("empresas/{empresaId:guid}/certidoes/emissoes")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(IReadOnlyList<EmissaoCertidaoDto>), StatusCodes.Status202Accepted)]
+    public async Task<ActionResult<IReadOnlyList<EmissaoCertidaoDto>>> Emitir(Guid empresaId, EmitirCertidoesCommand command, CancellationToken ct) =>
+        Accepted(await emissao.EmitirAgoraAsync(empresaId, command, ct));
+
     /// <summary>
     /// Painel do escritório: certidões atuais vencidas, a vencer em até <c>dias</c> (padrão 30) e positivas,
     /// de todas as empresas, com os totais de vencidas e a vencer em 15/30 dias.

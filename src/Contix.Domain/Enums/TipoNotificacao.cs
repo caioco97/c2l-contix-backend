@@ -9,5 +9,6 @@ public enum TipoNotificacao
     SolicitacaoAtualizada = 4,
     NovaNoticia = 5,
     CertidaoVencimento = 6,
-    TarefaAtribuida = 7
+    TarefaAtribuida = 7,
+    EmissaoCertidaoFalha = 8
 }

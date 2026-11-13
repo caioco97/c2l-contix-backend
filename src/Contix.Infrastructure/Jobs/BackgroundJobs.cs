@@ -1,4 +1,6 @@
+using Contix.Application.Features.Certidoes.Emissao;
 using Contix.Application.Features.Notificacoes;
+using Contix.Infrastructure.Certidoes;
 using Contix.Infrastructure.Email;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -73,5 +75,27 @@ public sealed class LembreteVencimentoJob(
         {
             logger.LogError(ex, "Falha ao processar {Servico}", typeof(T).Name);
         }
+    }
+}
+
+/// <summary>Emissão automática de CND: agenda as renovações devidas e processa a fila de emissões.</summary>
+public sealed class EmissaoCertidaoJob(
+    IServiceScopeFactory scopeFactory, IOptions<EmissaoCertidaoOptions> options, ILogger<EmissaoCertidaoJob> logger)
+    : JobPeriodico(logger)
+{
+    protected override bool Habilitado => options.Value.ProcessarFila
+        && !string.Equals(options.Value.Provider, "Desabilitado", StringComparison.OrdinalIgnoreCase);
+    protected override TimeSpan Intervalo => TimeSpan.FromMinutes(Math.Max(1, options.Value.IntervaloMinutos));
+
+    protected override async Task ExecutarUmaVezAsync(CancellationToken ct)
+    {
+        // Escopos separados: uma falha no agendamento não trava a fila (e vice-versa).
+        await using (var scope = scopeFactory.CreateAsyncScope())
+        {
+            try { await scope.ServiceProvider.GetRequiredService<IProcessadorEmissaoCertidao>().AgendarAsync(ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogError(ex, "Falha ao agendar emissões de CND"); }
+        }
+        await using (var scope = scopeFactory.CreateAsyncScope())
+            await scope.ServiceProvider.GetRequiredService<IProcessadorEmissaoCertidao>().ProcessarFilaAsync(ct);
     }
 }

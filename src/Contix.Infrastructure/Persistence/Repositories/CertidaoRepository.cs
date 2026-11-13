@@ -57,5 +57,5 @@ public sealed class CertidaoRepository(ContixDbContext context) : Repository<Cer
         c.Id, c.EmpresaId, c.Empresa?.NomeFantasia ?? c.Empresa?.RazaoSocial ?? "", c.Tipo, CatalogoCertidoes.Nome(c.Tipo),
         c.Situacao, c.Numero, c.Emissao, c.Validade, c.CalcularValidade(hoje), c.Validade.DayNumber - hoje.DayNumber,
         Certidao.EhRegular(c.Situacao, c.Validade, hoje), atual, c.Observacao, c.PossuiArquivo, c.NomeArquivo, c.TamanhoBytes,
-        c.CadastradoPor?.Nome ?? "", c.CreatedAt, c.UpdatedAt);
+        c.CadastradoPor?.Nome ?? (c.EmitidaAutomaticamente ? "Emissão automática" : ""), c.EmitidaAutomaticamente, c.CreatedAt, c.UpdatedAt);
 }

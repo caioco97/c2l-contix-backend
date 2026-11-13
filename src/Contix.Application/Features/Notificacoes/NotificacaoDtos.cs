@@ -40,6 +40,7 @@ public static class TiposNotificacao
         [TipoNotificacao.SolicitacaoAtualizada] = "Atualizações de solicitações",
         [TipoNotificacao.NovaNoticia] = "Novas notícias do escritório",
         [TipoNotificacao.CertidaoVencimento] = "Certidões (CND) a vencer ou vencidas",
-        [TipoNotificacao.TarefaAtribuida] = "Tarefas atribuídas a você"
+        [TipoNotificacao.TarefaAtribuida] = "Tarefas atribuídas a você",
+        [TipoNotificacao.EmissaoCertidaoFalha] = "Falhas na emissão automática de certidões"
     };
 }

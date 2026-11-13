@@ -28,6 +28,8 @@ public sealed class ContixApiFactory : WebApplicationFactory<Program>, IAsyncLif
         builder.UseSetting("RateLimit:AuthPorMinuto", "1000");
         builder.UseSetting("Email:ProcessarFila", "false");
         builder.UseSetting("Notificacoes:LembreteVencimento:Habilitado", "false");
+        builder.UseSetting("Certidoes:Emissao:Provider", "Simulado");
+        builder.UseSetting("Certidoes:Emissao:ProcessarFila", "false");
         builder.UseSetting("Notificacoes:UrlFrontend", "https://app.contix.test");
     }
 

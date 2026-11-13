@@ -11,6 +11,8 @@ using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Noticias;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Usuarios;
+using Contix.Application.Features.Certidoes.Emissao;
+using Contix.Infrastructure.Certidoes;
 using Contix.Infrastructure.Common;
 using Contix.Infrastructure.Email;
 using Contix.Infrastructure.Jobs;
@@ -70,6 +72,18 @@ public static class DependencyInjection
         services.AddScoped<ITokenRedefinicaoSenhaRepository, TokenRedefinicaoSenhaRepository>();
         services.AddScoped<INoticiaRepository, NoticiaRepository>();
         services.AddScoped<ICertidaoRepository, CertidaoRepository>();
+        services.AddScoped<IEmissaoCertidaoRepository, EmissaoCertidaoRepository>();
+
+        // Emissão automática de CND: integrador escolhido por configuração.
+        services.AddOptions<EmissaoCertidaoOptions>().Bind(configuration.GetSection(EmissaoCertidaoOptions.Secao));
+        var provedorCnd = configuration.GetValue<string>($"{EmissaoCertidaoOptions.Secao}:Provider") ?? "Desabilitado";
+        if (provedorCnd.Equals("Infosimples", StringComparison.OrdinalIgnoreCase))
+            services.AddHttpClient<IEmissorCertidao, EmissorCertidaoInfosimples>(c => c.Timeout = TimeSpan.FromMinutes(11));
+        else if (provedorCnd.Equals("Simulado", StringComparison.OrdinalIgnoreCase))
+            services.AddScoped<IEmissorCertidao, EmissorCertidaoSimulado>();
+        else
+            services.AddSingleton<IEmissorCertidao, EmissorCertidaoDesabilitado>();
+        services.AddHostedService<EmissaoCertidaoJob>();
 
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();

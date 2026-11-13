@@ -74,7 +74,7 @@ public sealed class EmpresaPainelRepository(ContixDbContext context) : IEmpresaP
         await context.Certidoes.AsNoTracking()
             .Where(c => c.EmpresaId == empresaId && c.CreatedAt < antesDe)
             .OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
-            .Select(c => new EventoCertidaoEmpresa(c.Id, c.CreatedAt, c.CadastradoPor!.Nome, c.Tipo, c.Situacao, c.Validade))
+            .Select(c => new EventoCertidaoEmpresa(c.Id, c.CreatedAt, c.CadastradoPor != null ? c.CadastradoPor.Nome : "Emissão automática", c.Tipo, c.Situacao, c.Validade))
             .Take(limite).ToListAsync(ct);
 
     public async Task<IReadOnlyList<EventoUsuarioEmpresa>> ListarVinculosUsuariosAsync(Guid empresaId, DateTime antesDe, int limite, CancellationToken ct = default) =>
