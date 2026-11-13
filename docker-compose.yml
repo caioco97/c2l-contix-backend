@@ -44,8 +44,9 @@ services:
       Database__MigrateOnStartup: ${DB_MIGRATE_ON_STARTUP:-true}
       Database__SeedDemoData: ${DB_SEED_DEMO:-true}
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
-      # Proxies confiáveis para X-Forwarded-For (IP real na auditoria). A rede do Docker fica em 172.16.0.0/12.
-      ForwardedHeaders__RedesConfiaveis__0: ${PROXY_REDE_CONFIAVEL:-172.16.0.0/12}
+      # Proxy confiável para X-Forwarded-For (IP real na auditoria e no rate limit): só a rede
+      # interna deste compose (ver "networks" abaixo), onde roda o nginx do frontend.
+      ForwardedHeaders__RedesConfiaveis__0: ${PROXY_REDE_CONFIAVEL:-172.28.10.0/24}
       Notificacoes__UrlFrontend: ${FRONTEND_URL:-http://localhost:5173}
       # Chave AES-256 dos certificados A1 guardados no banco. Gere com: openssl rand -base64 32
       Criptografia__Chave: ${CRIPTOGRAFIA_CHAVE:?Defina CRIPTOGRAFIA_CHAVE no arquivo .env}
@@ -66,3 +67,10 @@ services:
 volumes:
   pgdata:
   storage:
+
+# Rede interna com faixa fixa: é a única confiável para X-Forwarded-For (PROXY_REDE_CONFIAVEL).
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${COMPOSE_SUBNET:-172.28.10.0/24}
