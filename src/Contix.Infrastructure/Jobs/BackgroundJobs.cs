@@ -53,9 +53,25 @@ public sealed class LembreteVencimentoJob(
     protected override bool Habilitado => options.Value.Habilitado;
     protected override TimeSpan Intervalo => TimeSpan.FromMinutes(Math.Max(1, options.Value.IntervaloMinutos));
 
+    /// <summary>Lembretes de documentos, avisos de notícias publicadas (inclusive agendadas) e de CND a vencer.</summary>
     protected override async Task ExecutarUmaVezAsync(CancellationToken ct)
     {
-        await using var scope = scopeFactory.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<ILembreteVencimentoService>().ProcessarAsync(ct);
+        await ExecutarAsync<ILembreteVencimentoService>(s => s.ProcessarAsync(ct));
+        await ExecutarAsync<IAvisoNoticiaService>(s => s.ProcessarAsync(ct));
+        await ExecutarAsync<IAvisoCertidaoService>(s => s.ProcessarAsync(ct));
+    }
+
+    // Cada aviso em seu escopo: a falha de um não impede os outros.
+    private async Task ExecutarAsync<T>(Func<T, Task<int>> acao) where T : notnull
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            await acao(scope.ServiceProvider.GetRequiredService<T>());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Falha ao processar {Servico}", typeof(T).Name);
+        }
     }
 }

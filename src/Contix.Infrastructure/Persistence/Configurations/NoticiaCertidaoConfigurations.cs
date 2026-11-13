@@ -75,6 +75,8 @@ public sealed class CertidaoConfiguration : IEntityTypeConfiguration<Certidao>
         b.Property(x => x.ContentType).HasMaxLength(150);
         b.Property(x => x.StorageKey).HasMaxLength(500);
         b.Ignore(x => x.PossuiArquivo);
+        b.Property(x => x.AvisoVencimento30Em).HasColumnName("aviso_vencimento_30_em");
+        b.Property(x => x.AvisoVencimento15Em).HasColumnName("aviso_vencimento_15_em");
         b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.CadastradoPor).WithMany().HasForeignKey(x => x.CadastradoPorId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Tipo, x.Validade });

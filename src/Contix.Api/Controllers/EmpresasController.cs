@@ -8,7 +8,7 @@ namespace Contix.Api.Controllers;
 
 /// <summary>Empresas clientes. Usuários do cliente veem apenas as empresas vinculadas.</summary>
 [Route("api/v1/empresas")]
-public sealed class EmpresasController(IEmpresaService service) : ApiControllerBase
+public sealed class EmpresasController(IEmpresaService service, IHistoricoEmpresaService historico) : ApiControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<EmpresaResumoDto>), StatusCodes.Status200OK)]
@@ -49,4 +49,17 @@ public sealed class EmpresasController(IEmpresaService service) : ApiControllerB
         await service.ExcluirAsync(id, ct);
         return NoContent();
     }
+
+    /// <summary>Indicadores da empresa: usuários, documentos pendentes, solicitações e certidões.</summary>
+    [HttpGet("{id:guid}/painel")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(PainelEmpresaDto), StatusCodes.Status200OK)]
+    public Task<PainelEmpresaDto> Painel(Guid id, CancellationToken ct) => historico.ObterPainelAsync(id, ct);
+
+    /// <summary>Linha do tempo da empresa (documentos, solicitações, certidões e acessos), da mais recente para a mais antiga.</summary>
+    [HttpGet("{id:guid}/historico")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(HistoricoEmpresaDto), StatusCodes.Status200OK)]
+    public Task<HistoricoEmpresaDto> Historico(Guid id, [FromQuery] HistoricoEmpresaFiltro filtro, CancellationToken ct) =>
+        historico.ListarHistoricoAsync(id, filtro, ct);
 }

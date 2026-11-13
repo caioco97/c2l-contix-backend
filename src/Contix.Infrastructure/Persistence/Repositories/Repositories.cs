@@ -47,6 +47,11 @@ public sealed class UsuarioRepository(ContixDbContext context) : Repository<Usua
     public Task<Usuario?> GetComEmpresasAsync(Guid id, CancellationToken ct = default) =>
         Set.Include(u => u.Empresas).FirstOrDefaultAsync(u => u.Id == id, ct);
 
+    public async Task<IReadOnlyList<Usuario>> ListarClientesDaEmpresaAsync(Guid empresaId, CancellationToken ct = default) =>
+        await Set.AsNoTracking().Include(u => u.Empresas)
+            .Where(u => u.Perfil == PerfilUsuario.Cliente && u.Empresas.Any(e => e.EmpresaId == empresaId))
+            .ToListAsync(ct);
+
     public Task<PagedResult<Usuario>> PesquisarAsync(UsuarioFiltro filtro, CancellationToken ct = default)
     {
         var q = Set.AsNoTracking().Include(u => u.Empresas).AsQueryable();
@@ -84,6 +89,9 @@ public sealed class EmpresaRepository(ContixDbContext context) : Repository<Empr
     public Task<bool> UsuarioVinculadoAsync(Guid usuarioId, Guid empresaId, CancellationToken ct = default) =>
         Context.UsuarioEmpresas.AnyAsync(v => v.UsuarioId == usuarioId && v.EmpresaId == empresaId, ct);
 
+    public Task<UsuarioEmpresa?> ObterVinculoAsync(Guid usuarioId, Guid empresaId, CancellationToken ct = default) =>
+        Context.UsuarioEmpresas.AsNoTracking().FirstOrDefaultAsync(v => v.UsuarioId == usuarioId && v.EmpresaId == empresaId, ct);
+
     public Task<PagedResult<EmpresaResumoDto>> PesquisarAsync(EmpresaFiltro filtro, Guid? somenteDoUsuario, CancellationToken ct = default)
     {
         var q = Set.AsNoTracking();
@@ -116,8 +124,14 @@ public sealed class EmpresaRepository(ContixDbContext context) : Repository<Empr
             _ => q.OrderBy(e => e.RazaoSocial)
         };
 
+        if (somenteDoUsuario is { } cliente)
+            return q.Select(e => new EmpresaResumoDto(e.Id, e.RazaoSocial, e.NomeFantasia, e.Apelido, e.Documento,
+                    e.RegimeTributario, e.Situacao,
+                    e.Usuarios.Where(v => v.UsuarioId == cliente).Select(v => v.Modulos).FirstOrDefault()))
+                .ToPagedAsync(filtro, ct);
+
         return q.Select(e => new EmpresaResumoDto(e.Id, e.RazaoSocial, e.NomeFantasia, e.Apelido, e.Documento,
-                e.RegimeTributario, e.Situacao))
+                e.RegimeTributario, e.Situacao, null))
             .ToPagedAsync(filtro, ct);
     }
 }
@@ -138,9 +152,11 @@ public sealed class PastaRepository(ContixDbContext context) : Repository<Pasta>
 
 public sealed class DocumentoRepository(ContixDbContext context) : Repository<Documento>(context), IDocumentoRepository
 {
-    public Task<PagedResult<DocumentoDto>> PesquisarAsync(Guid empresaId, DocumentoFiltro filtro, Guid usuarioId, CancellationToken ct = default)
+    public Task<PagedResult<DocumentoDto>> PesquisarAsync(Guid empresaId, DocumentoFiltro filtro, Guid usuarioId,
+        IReadOnlyCollection<Guid>? pastasPermitidas = null, CancellationToken ct = default)
     {
         var q = Set.AsNoTracking().Where(d => d.EmpresaId == empresaId);
+        if (pastasPermitidas is not null) q = q.Where(d => pastasPermitidas.Contains(d.PastaId));
 
         if (filtro.PastaId is { } pastaId) q = q.Where(d => d.PastaId == pastaId);
         if (!string.IsNullOrWhiteSpace(filtro.Busca))
@@ -185,9 +201,11 @@ public sealed class DocumentoRepository(ContixDbContext context) : Repository<Do
     public async Task<IReadOnlyList<Documento>> ListarPorIdsAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
         await Set.AsNoTracking().Where(d => d.EmpresaId == empresaId && ids.Contains(d.Id)).ToListAsync(ct);
 
-    public async Task<IReadOnlyList<VencimentoDto>> ListarVencimentosAsync(Guid empresaId, DateOnly inicio, DateOnly fim, Guid usuarioId, CancellationToken ct = default) =>
+    public async Task<IReadOnlyList<VencimentoDto>> ListarVencimentosAsync(Guid empresaId, DateOnly inicio, DateOnly fim, Guid usuarioId,
+        IReadOnlyCollection<Guid>? pastasPermitidas = null, CancellationToken ct = default) =>
         await Set.AsNoTracking()
             .Where(d => d.EmpresaId == empresaId && d.DataVencimento != null && d.DataVencimento >= inicio && d.DataVencimento <= fim)
+            .Where(d => pastasPermitidas == null || pastasPermitidas.Contains(d.PastaId))
             .OrderBy(d => d.DataVencimento).ThenBy(d => d.Nome)
             .Select(d => new VencimentoDto(d.Id, d.Nome, d.DataVencimento!.Value, d.PastaId, string.Empty,
                 d.Leituras.Any(l => l.UsuarioId == usuarioId)))

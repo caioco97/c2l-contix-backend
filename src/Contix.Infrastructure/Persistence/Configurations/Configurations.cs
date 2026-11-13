@@ -60,6 +60,8 @@ public sealed class UsuarioEmpresaConfiguration : IEntityTypeConfiguration<Usuar
         b.HasOne(x => x.Usuario).WithMany(x => x.Empresas).HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne(x => x.Empresa).WithMany(x => x.Usuarios).HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => x.EmpresaId);
+        b.PrimitiveCollection(x => x.Modulos).ElementType(e => e.HasConversion<string>());
+        b.PrimitiveCollection(x => x.PastaIds);
     }
 }
 

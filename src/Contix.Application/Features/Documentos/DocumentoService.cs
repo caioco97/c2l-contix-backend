@@ -47,23 +47,27 @@ public sealed class DocumentoService(
 {
     public async Task<PagedResult<DocumentoDto>> PesquisarAsync(Guid empresaId, DocumentoFiltro filtro, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
-        return await documentos.PesquisarAsync(empresaId, filtro, currentUser.RequireUserId(), ct);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
+        if (filtro.PastaId is { } pastaId && visiveis is not null && !visiveis.Contains(pastaId))
+            throw new NotFoundException("Pasta", pastaId);
+        return await documentos.PesquisarAsync(empresaId, filtro, currentUser.RequireUserId(), visiveis, ct);
     }
 
     public async Task<DocumentoDto> ObterAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
-        return await documentos.ObterDtoAsync(empresaId, documentoId, currentUser.RequireUserId(), ct)
-               ?? throw new NotFoundException("Documento", documentoId);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
+        var dto = await documentos.ObterDtoAsync(empresaId, documentoId, currentUser.RequireUserId(), ct);
+        if (dto is null || (visiveis is not null && !visiveis.Contains(dto.PastaId))) throw new NotFoundException("Documento", documentoId);
+        return dto;
     }
 
     public async Task<IReadOnlyList<DocumentoDto>> EnviarAsync(Guid empresaId, UploadDocumentosCommand command, CancellationToken ct = default)
     {
         await FluentValidation.DefaultValidatorExtensions.ValidateAndThrowAsync(uploadValidator, command, ct);
-        var empresa = await acesso.GarantirAcessoAsync(empresaId, ct);
+        var (empresa, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
         var pasta = await pastas.GetByIdAsync(command.PastaId, ct);
-        if (pasta is null || pasta.EmpresaId != empresaId) throw new NotFoundException("Pasta", command.PastaId);
+        if (pasta is null || pasta.EmpresaId != empresaId || (visiveis is not null && !visiveis.Contains(pasta.Id)))
+            throw new NotFoundException("Pasta", command.PastaId);
         if (currentUser.EhCliente && !pasta.PermiteUploadCliente)
             throw new ForbiddenException("Esta pasta não permite envio de documentos pelo cliente.");
 
@@ -128,8 +132,8 @@ public sealed class DocumentoService(
 
     public async Task<ArquivoParaDownload> BaixarAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
-        var doc = await CarregarAsync(empresaId, documentoId, ct);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
+        var doc = await CarregarAsync(empresaId, documentoId, visiveis, ct);
 
         var stream = await storage.OpenReadAsync(doc.StorageKey, ct);
         var usuarioId = currentUser.RequireUserId();
@@ -143,10 +147,11 @@ public sealed class DocumentoService(
 
     public async Task<ArquivoParaDownload> BaixarZipAsync(Guid empresaId, DownloadDocumentosRequest request, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
         var ids = request.DocumentoIds.Distinct().ToList();
         var docs = await documentos.ListarPorIdsAsync(empresaId, ids, ct);
-        if (docs.Count != ids.Count) throw new NotFoundException("Um ou mais documentos selecionados");
+        if (docs.Count != ids.Count || (visiveis is not null && docs.Any(d => !visiveis.Contains(d.PastaId))))
+            throw new NotFoundException("Um ou mais documentos selecionados");
 
         var zip = new MemoryStream();
         using (var archive = new ZipArchive(zip, ZipArchiveMode.Create, leaveOpen: true))
@@ -175,8 +180,8 @@ public sealed class DocumentoService(
 
     public async Task MarcarComoLidoAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
-        var doc = await CarregarAsync(empresaId, documentoId, ct);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
+        var doc = await CarregarAsync(empresaId, documentoId, visiveis, ct);
         var usuarioId = currentUser.RequireUserId();
         var agora = clock.UtcNow;
         await documentos.MarcarComoLidosAsync([doc.Id], usuarioId, agora, ct);
@@ -186,8 +191,8 @@ public sealed class DocumentoService(
 
     public async Task ExcluirAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
-        var doc = await CarregarAsync(empresaId, documentoId, ct);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
+        var doc = await CarregarAsync(empresaId, documentoId, visiveis, ct);
 
         if (currentUser.EhCliente &&
             (!options.Value.ClientePodeExcluirProprios || doc.AdicionadoPorId != currentUser.RequireUserId()))
@@ -202,12 +207,12 @@ public sealed class DocumentoService(
 
     public async Task<IReadOnlyList<VencimentoDto>> ListarVencimentosAsync(Guid empresaId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
         if (fim < inicio) (inicio, fim) = (fim, inicio);
         if (fim.DayNumber - inicio.DayNumber > 366)
             throw new FluentValidation.ValidationException("O período consultado deve ter no máximo 1 ano.");
 
-        var itens = await documentos.ListarVencimentosAsync(empresaId, inicio, fim, currentUser.RequireUserId(), ct);
+        var itens = await documentos.ListarVencimentosAsync(empresaId, inicio, fim, currentUser.RequireUserId(), visiveis, ct);
         if (itens.Count == 0) return itens;
 
         var mapa = (await pastas.ListarPorEmpresaAsync(empresaId, ct)).ToDictionary(p => p.Id);
@@ -223,7 +228,7 @@ public sealed class DocumentoService(
         var docs = await documentos.ListarPorIdsAsync(empresaId, ids, ct);
         if (docs.Count != ids.Count) throw new NotFoundException("Um ou mais documentos selecionados");
 
-        var clientes = await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ct);
+        var clientes = await ClientesComAcessoAsync(empresa, docs.Select(d => d.PastaId), ct);
         if (clientes.Count == 0)
             throw new Contix.Domain.Exceptions.DomainException("A empresa não possui usuários ativos no portal para receber os documentos.");
 
@@ -257,12 +262,12 @@ public sealed class DocumentoService(
     {
         if (currentUser.EhCliente) throw new ForbiddenException();
         var empresa = await acesso.GarantirAcessoAsync(empresaId, ct);
-        var doc = await CarregarAsync(empresaId, documentoId, ct);
+        var doc = await CarregarAsync(empresaId, documentoId, null, ct);
 
         // Destinatários: quem está do outro lado de quem publicou.
         var esperados = doc.Origem == OrigemDocumento.Cliente
             ? await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct)
-            : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ct);
+            : await destinatarios.ListarClientesComAcessoAPastaAsync(empresa.TenantId, empresaId, doc.PastaId, ct);
         var interacoes = (await documentos.ListarInteracoesAsync(doc.Id, ct)).ToDictionary(i => i.UsuarioId);
 
         var usuarios = new List<AcessoDocumentoDto>();
@@ -290,8 +295,8 @@ public sealed class DocumentoService(
     public async Task<IReadOnlyList<EventoDocumentoDto>> ListarHistoricoAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
     {
         if (currentUser.EhCliente) throw new ForbiddenException();
-        await acesso.GarantirAcessoAsync(empresaId, ct);
-        var doc = await CarregarAsync(empresaId, documentoId, ct);
+        var (_, visiveis) = await AcessoDocumentosAsync(empresaId, ct);
+        var doc = await CarregarAsync(empresaId, documentoId, visiveis, ct);
         return await documentos.ListarEventosAsync(doc.Id, ct);
     }
 
@@ -300,7 +305,7 @@ public sealed class DocumentoService(
         // Escritório publicou: avisa o cliente. Cliente enviou: avisa a equipe do escritório.
         var alvo = currentUser.EhCliente
             ? await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct)
-            : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresa.Id, ct);
+            : await destinatarios.ListarClientesComAcessoAPastaAsync(empresa.TenantId, empresa.Id, pasta.Id, ct);
         if (alvo.Count == 0) return;
 
         var nomeEmpresa = NomeEmpresa(empresa);
@@ -317,10 +322,28 @@ public sealed class DocumentoService(
 
     private static string NomeEmpresa(Empresa e) => e.NomeFantasia ?? e.RazaoSocial;
 
-    private async Task<Documento> CarregarAsync(Guid empresaId, Guid documentoId, CancellationToken ct)
+    /// <summary>Acesso ao módulo de documentos e pastas visíveis ao usuário (null = todas).</summary>
+    private async Task<(Empresa Empresa, IReadOnlySet<Guid>? Visiveis)> AcessoDocumentosAsync(Guid empresaId, CancellationToken ct)
+    {
+        var (empresa, permissoes) = await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Documentos, ct);
+        var visiveis = permissoes.VeTodasAsPastas ? null : permissoes.PastasVisiveis(await pastas.ListarPorEmpresaAsync(empresaId, ct));
+        return (empresa, visiveis);
+    }
+
+    /// <summary>Usuários do cliente que enxergam ao menos uma das pastas.</summary>
+    private async Task<IReadOnlyList<Destinatario>> ClientesComAcessoAsync(Empresa empresa, IEnumerable<Guid> pastaIds, CancellationToken ct)
+    {
+        var todos = new List<Destinatario>();
+        foreach (var pastaId in pastaIds.Distinct())
+            todos.AddRange(await destinatarios.ListarClientesComAcessoAPastaAsync(empresa.TenantId, empresa.Id, pastaId, ct));
+        return todos.DistinctBy(d => d.Id).ToList();
+    }
+
+    private async Task<Documento> CarregarAsync(Guid empresaId, Guid documentoId, IReadOnlySet<Guid>? visiveis, CancellationToken ct)
     {
         var doc = await documentos.GetByIdAsync(documentoId, ct);
-        if (doc is null || doc.EmpresaId != empresaId) throw new NotFoundException("Documento", documentoId);
+        if (doc is null || doc.EmpresaId != empresaId || (visiveis is not null && !visiveis.Contains(doc.PastaId)))
+            throw new NotFoundException("Documento", documentoId);
         return doc;
     }
 

@@ -37,6 +37,8 @@ public static class TiposNotificacao
         [TipoNotificacao.NovoDocumento] = "Novos documentos",
         [TipoNotificacao.VencimentoProximo] = "Vencimentos próximos",
         [TipoNotificacao.NovaSolicitacao] = "Novas solicitações",
-        [TipoNotificacao.SolicitacaoAtualizada] = "Atualizações de solicitações"
+        [TipoNotificacao.SolicitacaoAtualizada] = "Atualizações de solicitações",
+        [TipoNotificacao.NovaNoticia] = "Novas notícias do escritório",
+        [TipoNotificacao.CertidaoVencimento] = "Certidões (CND) a vencer ou vencidas"
     };
 }

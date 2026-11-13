@@ -25,6 +25,9 @@ public class Noticia : TenantEntity
     public string? ImagemStorageKey { get; set; }
     public string? ImagemContentType { get; set; }
 
+    /// <summary>Quando o público-alvo foi avisado da publicação (notificação in-app e e-mail).</summary>
+    public DateTime? NotificadaEm { get; private set; }
+
     public Guid AutorId { get; set; }
     public Usuario? Autor { get; set; }
 
@@ -56,6 +59,11 @@ public class Noticia : TenantEntity
         foreach (var empresaId in desejadas.Except(Empresas.Select(v => v.EmpresaId)))
             Empresas.Add(new NoticiaEmpresa { NoticiaId = Id, EmpresaId = empresaId });
     }
+
+    /// <summary>Publicada, não expirada e ainda sem aviso ao público.</summary>
+    public bool PrecisaAvisar(DateTime agora) => NotificadaEm is null && Situacao(agora) == SituacaoNoticia.Publicada;
+
+    public void MarcarNotificada(DateTime agora) => NotificadaEm ??= agora;
 
     public SituacaoNoticia Situacao(DateTime agora) =>
         PublicarEm > agora ? SituacaoNoticia.Agendada

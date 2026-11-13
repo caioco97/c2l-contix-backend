@@ -34,10 +34,12 @@ public sealed class LembreteVencimentoService(
             var documentos = await repositorio.ListarDocumentosParaLembreteAsync(hoje, Lote, ct);
             if (documentos.Count == 0) break;
 
-            foreach (var porEmpresa in documentos.GroupBy(d => (d.TenantId, d.EmpresaId)))
+            foreach (var porPasta in documentos.GroupBy(d => (d.TenantId, d.EmpresaId, d.PastaId)))
             {
-                var clientes = await repositorio.ListarClientesDaEmpresaAsync(porEmpresa.Key.TenantId, porEmpresa.Key.EmpresaId, ct);
-                foreach (var doc in porEmpresa)
+                // Só quem tem o módulo de documentos e enxerga a pasta.
+                var clientes = await repositorio.ListarClientesComAcessoAPastaAsync(
+                    porPasta.Key.TenantId, porPasta.Key.EmpresaId, porPasta.Key.PastaId, ct);
+                foreach (var doc in porPasta)
                 {
                     var dias = doc.DataVencimento.DayNumber - hoje.DayNumber;
                     var quando = dias switch { 0 => "vence hoje", 1 => "vence amanhã", _ => $"vence em {dias} dias" };

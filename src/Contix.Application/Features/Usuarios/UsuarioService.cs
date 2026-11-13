@@ -14,6 +14,10 @@ public interface IUsuarioService
     Task<UsuarioDto> ObterAsync(Guid id, CancellationToken ct = default);
     Task<UsuarioDto> CriarAsync(CriarUsuarioRequest request, CancellationToken ct = default);
     Task<UsuarioDto> AtualizarAsync(Guid id, AtualizarUsuarioRequest request, CancellationToken ct = default);
+    /// <summary>Reenvia o convite de primeiro acesso (somente para quem ainda não definiu a senha).</summary>
+    Task<UsuarioDto> ReenviarConviteAsync(Guid id, CancellationToken ct = default);
+    /// <summary>Ativa ou inativa o acesso do usuário. Inativar encerra as sessões abertas.</summary>
+    Task<UsuarioDto> AlterarSituacaoAsync(Guid id, AlterarSituacaoUsuarioRequest request, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -25,6 +29,8 @@ public sealed class UsuarioService(
     IEmpresaRepository empresas,
     IRefreshTokenRepository refreshTokens,
     IPasswordHasher passwordHasher,
+    IConviteService convites,
+    ITokenService tokenService,
     IUnitOfWork unitOfWork,
     ICurrentUser currentUser,
     IDateTimeProvider clock) : IUsuarioService
@@ -46,16 +52,20 @@ public sealed class UsuarioService(
         if (await usuarios.EmailExisteIgnorandoTenantAsync(email, null, ct))
             throw new ConflictException("Este e-mail já está em uso.");
 
+        var convidar = string.IsNullOrEmpty(request.Senha);
         var usuario = new Usuario
         {
+            TenantId = currentUser.RequireTenantId(),
             Nome = request.Nome.Trim(),
             Email = email,
             Perfil = request.Perfil,
-            SenhaHash = passwordHasher.Hash(request.Senha)
+            // Convidado: senha aleatória que ninguém conhece até ele definir a própria pelo link.
+            SenhaHash = passwordHasher.Hash(convidar ? tokenService.GerarTokenOpaco().Token : request.Senha!)
         };
         await DefinirEmpresasAsync(usuario, request.Perfil, request.EmpresaIds, ct);
 
         await usuarios.AddAsync(usuario, ct);
+        if (convidar) await convites.EnviarAsync(usuario, null, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return UsuarioDto.From(usuario);
     }
@@ -73,16 +83,42 @@ public sealed class UsuarioService(
         usuario.Perfil = request.Perfil;
         await DefinirEmpresasAsync(usuario, request.Perfil, request.EmpresaIds, ct);
 
-        if (usuario.Ativo && !request.Ativo)
+        await DefinirAtivoAsync(usuario, request.Ativo, ct);
+
+        await unitOfWork.SaveChangesAsync(ct);
+        return UsuarioDto.From(usuario);
+    }
+
+    public async Task<UsuarioDto> ReenviarConviteAsync(Guid id, CancellationToken ct = default)
+    {
+        var usuario = await CarregarAsync(id, ct);
+        GarantirPodeGerenciarPerfil(usuario.Perfil);
+        if (!usuario.Ativo) throw new ConflictException("Ative o usuário antes de reenviar o convite.");
+        await convites.EnviarAsync(usuario, null, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return UsuarioDto.From(usuario);
+    }
+
+    public async Task<UsuarioDto> AlterarSituacaoAsync(Guid id, AlterarSituacaoUsuarioRequest request, CancellationToken ct = default)
+    {
+        var usuario = await CarregarAsync(id, ct);
+        GarantirPodeGerenciarPerfil(usuario.Perfil);
+        if (usuario.Id == currentUser.UserId && !request.Ativo)
+            throw new ConflictException("Você não pode inativar o seu próprio usuário.");
+        await DefinirAtivoAsync(usuario, request.Ativo, ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return UsuarioDto.From(usuario);
+    }
+
+    private async Task DefinirAtivoAsync(Usuario usuario, bool ativo, CancellationToken ct)
+    {
+        if (usuario.Ativo && !ativo)
         {
             var agora = clock.UtcNow;
             foreach (var t in await refreshTokens.ListarAtivosDoUsuarioAsync(usuario.Id, agora, ct))
                 t.Revogar(agora, "Usuário inativado");
         }
-        usuario.Ativo = request.Ativo;
-
-        await unitOfWork.SaveChangesAsync(ct);
-        return UsuarioDto.From(usuario);
+        usuario.Ativo = ativo;
     }
 
     private async Task<Usuario> CarregarAsync(Guid id, CancellationToken ct) =>

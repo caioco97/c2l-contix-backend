@@ -39,6 +39,7 @@ public sealed class NoticiaService(
     ICurrentUser currentUser,
     IDateTimeProvider clock,
     IValidator<SalvarNoticiaCommand> validator,
+    Notificacoes.IAvisoNoticiaService avisos,
     ILogger<NoticiaService> logger) : INoticiaService
 {
     /// <summary>Tamanho do resumo gerado a partir do conteúdo quando o escritório não escreve um.</summary>
@@ -83,6 +84,8 @@ public sealed class NoticiaService(
 
         logger.LogInformation("Notícia {NoticiaId} criada pelo usuário {UsuarioId} (público {Publico}, publicação {PublicarEm:o})",
             noticia.Id, noticia.AutorId, noticia.Publico, noticia.PublicarEm);
+        // Publicada agora: avisa o público na hora. Agendada: o job avisa quando chegar a data.
+        await avisos.AvisarAsync(noticia.Id, ct);
         return await ObterAsync(noticia.Id, ct);
     }
 
@@ -123,6 +126,8 @@ public sealed class NoticiaService(
         // Só depois de salvar: se o banco falhar, os arquivos antigos continuam válidos.
         await RemoverArquivosAsync(arquivosRemovidos);
         logger.LogInformation("Notícia {NoticiaId} alterada pelo usuário {UsuarioId}", noticiaId, currentUser.UserId);
+        // Antecipar a publicação de uma notícia agendada também dispara o aviso (uma única vez).
+        await avisos.AvisarAsync(noticiaId, ct);
         return await ObterAsync(noticiaId, ct);
     }
 

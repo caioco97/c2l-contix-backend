@@ -17,11 +17,25 @@ public class Usuario : TenantEntity
     public int TentativasLoginFalhas { get; private set; }
     public DateTime? BloqueadoAte { get; private set; }
     public DateTime? UltimoLoginEm { get; private set; }
+    /// <summary>Último convite de primeiro acesso enviado por e-mail.</summary>
+    public DateTime? ConviteEnviadoEm { get; private set; }
+    /// <summary>Quando o usuário definiu a própria senha pelo link do convite.</summary>
+    public DateTime? ConviteAceitoEm { get; private set; }
 
     public Escritorio? Escritorio { get; set; }
     public ICollection<UsuarioEmpresa> Empresas { get; set; } = new List<UsuarioEmpresa>();
 
     public bool EhDoEscritorio => Perfil is PerfilUsuario.Administrador or PerfilUsuario.Colaborador;
+
+    /// <summary>Convidado por e-mail e ainda sem senha definida.</summary>
+    public bool ConvitePendente => ConviteEnviadoEm is not null && ConviteAceitoEm is null;
+
+    public void RegistrarConvite(DateTime agora)
+    {
+        if (ConviteAceitoEm is not null || UltimoLoginEm is not null)
+            throw new Exceptions.DomainException("Este usuário já definiu a senha de acesso.");
+        ConviteEnviadoEm = agora;
+    }
 
     public bool EstaBloqueado(DateTime agora) => BloqueadoAte.HasValue && BloqueadoAte.Value > agora;
 
@@ -36,9 +50,10 @@ public class Usuario : TenantEntity
     }
 
     /// <summary>Troca a senha (recuperação por e-mail) e libera um eventual bloqueio por tentativas.</summary>
-    public void RedefinirSenha(string novoHash)
+    public void RedefinirSenha(string novoHash, DateTime agora)
     {
         SenhaHash = novoHash;
+        if (ConviteEnviadoEm is not null) ConviteAceitoEm ??= agora;
         TentativasLoginFalhas = 0;
         BloqueadoAte = null;
     }

@@ -190,7 +190,7 @@ public sealed class AuthService(
             throw new DomainException("Link de redefinição inválido ou expirado.");
 
         token.MarcarComoUsado(agora);
-        usuario.RedefinirSenha(passwordHasher.Hash(request.NovaSenha));
+        usuario.RedefinirSenha(passwordHasher.Hash(request.NovaSenha), agora);
 
         // Encerra as sessões abertas: quem tinha a senha antiga perde o acesso.
         foreach (var t in await refreshTokens.ListarAtivosDoUsuarioAsync(usuario.Id, agora, ct))
