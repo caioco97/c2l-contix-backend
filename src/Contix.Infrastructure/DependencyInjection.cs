@@ -12,7 +12,11 @@ using Contix.Application.Features.Noticias;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Usuarios;
 using Contix.Application.Features.Certidoes.Emissao;
+using Contix.Application.Features.NotasFiscais;
+using Contix.Application.Features.NotasFiscais.Sefaz;
 using Contix.Infrastructure.Certidoes;
+using Contix.Infrastructure.Cnpj;
+using Contix.Infrastructure.NotasFiscais;
 using Contix.Infrastructure.Common;
 using Contix.Infrastructure.Email;
 using Contix.Infrastructure.Jobs;
@@ -84,6 +88,44 @@ public static class DependencyInjection
         else
             services.AddSingleton<IEmissorCertidao, EmissorCertidaoDesabilitado>();
         services.AddHostedService<EmissaoCertidaoJob>();
+
+        // Certificados A1 e outros segredos guardados no banco.
+        services.AddOptions<CriptografiaOptions>().Bind(configuration.GetSection(CriptografiaOptions.Secao));
+        services.AddSingleton<ICriptografiaSegredos, CriptografiaAesGcm>();
+
+        // NF-e: Distribuição DF-e e manifestação na SEFAZ (real, simulada ou desligada).
+        services.AddScoped<INotaFiscalRepository, NotaFiscalRepository>();
+        services.AddScoped<IIntegracaoSefazRepository, IntegracaoSefazRepository>();
+        services.AddOptions<SefazOptions>().Bind(configuration.GetSection(SefazOptions.Secao));
+        var provedorSefaz = configuration.GetValue<string>($"{SefazOptions.Secao}:Provider") ?? "Desabilitado";
+        if (provedorSefaz.Equals("Sefaz", StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<ISefazNFeGateway, SefazNFeGateway>();
+        else if (provedorSefaz.Equals("Simulado", StringComparison.OrdinalIgnoreCase))
+            services.AddSingleton<ISefazNFeGateway, SefazNFeSimulada>();
+        else
+            services.AddSingleton<ISefazNFeGateway, SefazNFeDesabilitada>();
+        services.AddHostedService<SincronizacaoNFeJob>();
+
+        // Consulta de CNPJ em APIs públicas, na ordem configurada (o próximo só entra se o anterior estiver fora do ar).
+        services.AddMemoryCache();
+        services.AddOptions<ConsultaCnpjOptions>().Bind(configuration.GetSection(ConsultaCnpjOptions.Secao));
+        var timeoutCnpj = TimeSpan.FromSeconds(Math.Max(2, configuration.GetValue($"{ConsultaCnpjOptions.Secao}:TimeoutSegundos", 10)));
+        var provedoresCnpj = configuration.GetSection($"{ConsultaCnpjOptions.Secao}:Provedores").Get<string[]>() ?? ConsultaCnpjOptions.ProvedoresPadrao;
+        foreach (var provedor in provedoresCnpj.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (provedor.Equals("BrasilApi", StringComparison.OrdinalIgnoreCase))
+            {
+                services.AddHttpClient<ConsultaCnpjBrasilApi>(c => c.Timeout = timeoutCnpj);
+                services.AddScoped<IProvedorConsultaCnpj>(sp => sp.GetRequiredService<ConsultaCnpjBrasilApi>());
+            }
+            else if (provedor.Equals("ReceitaWs", StringComparison.OrdinalIgnoreCase))
+            {
+                services.AddHttpClient<ConsultaCnpjReceitaWs>(c => c.Timeout = timeoutCnpj);
+                services.AddScoped<IProvedorConsultaCnpj>(sp => sp.GetRequiredService<ConsultaCnpjReceitaWs>());
+            }
+            else if (provedor.Equals("Simulado", StringComparison.OrdinalIgnoreCase))
+                services.AddSingleton<IProvedorConsultaCnpj, ConsultaCnpjSimulada>();
+        }
 
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();

@@ -45,6 +45,10 @@ services:
       Database__SeedDemoData: ${DB_SEED_DEMO:-true}
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
       Notificacoes__UrlFrontend: ${FRONTEND_URL:-http://localhost:5173}
+      # Chave AES-256 dos certificados A1 guardados no banco. Gere com: openssl rand -base64 32
+      Criptografia__Chave: ${CRIPTOGRAFIA_CHAVE:?Defina CRIPTOGRAFIA_CHAVE no arquivo .env}
+      NFe__Sefaz__Provider: ${NFE_SEFAZ_PROVIDER:-Simulado}
+      NFe__Sefaz__Ambiente: ${NFE_SEFAZ_AMBIENTE:-Homologacao}
       Email__Provider: ${EMAIL_PROVIDER:-Smtp}
       Email__Remetente: ${EMAIL_REMETENTE:-nao-responda@contix.dev}
       Email__Smtp__Host: ${SMTP_HOST:-mailpit}

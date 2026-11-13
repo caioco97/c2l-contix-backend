@@ -186,6 +186,36 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 - **Tipos cobertos:** Federal (RFB/PGFN), FGTS (CRF) e Trabalhista (CNDT). Estadual e municipal variam por UF/município e ficam para uma próxima fase (a Infosimples tem consultas de SEFAZ e prefeituras que podem ser ligadas em `Certidoes:Emissao:Infosimples:Consultas`).
 - **Job** (a cada `Certidoes:Emissao:IntervaloMinutos`): agenda os tipos sem certidão, dentro da antecedência ou com certidão positiva (no máximo uma vez a cada 20 h por tipo) e processa a fila. A certidão emitida entra no histórico com PDF, situação e validade (`emitidaAutomaticamente = true`). Falha temporária tenta de novo em 30 min e 2 h; recusa do órgão ou 3 falhas viram `Falha` e notificam (`EmissaoCertidaoFalha`) quem pediu e o responsável.
 
+### NF-e (manifestação do destinatário)
+
+| Método | Rota | Perfil | Descrição |
+| --- | --- | --- | --- |
+| GET | `/empresas/{id}/notas-fiscais?de=&ate=&manifestacao=&situacao=&busca=&page=&orderBy=` | módulo NF-e | NF-e emitidas contra o CNPJ da empresa (busca por emitente, CNPJ, número ou chave; `orderBy`: `dataEmissao`, `valor`, `emitente`, `numero`) |
+| GET | `/empresas/{id}/notas-fiscais/resumo` | módulo NF-e | Total de notas e totais por manifestação (sem as canceladas) |
+| GET | `/empresas/{id}/notas-fiscais/{notaId}` | módulo NF-e | Detalhe |
+| POST | `/empresas/{id}/notas-fiscais/{notaId}/manifestacao` | módulo NF-e | `{ tipo: Ciencia \| Confirmada \| Desconhecida \| NaoRealizada, justificativa? }` |
+| GET | `/empresas/{id}/notas-fiscais/{notaId}/xml` | módulo NF-e | XML completo (ou o resumo da SEFAZ, enquanto não houver ciência) |
+| POST | `/empresas/{id}/notas-fiscais/importacao` | escritório | Multipart `arquivos` (até 100 XMLs `nfeProc`, 5 MB cada). Responde o resultado por arquivo |
+| GET / PUT | `/empresas/{id}/integracao-sefaz` | escritório | Certificado, busca automática (`ativa`, `cienciaAutomatica`), último NSU, retorno da SEFAZ e `pendencias` |
+| POST / DELETE | `/empresas/{id}/integracao-sefaz/certificado` | escritório | Multipart `arquivo` (.pfx/.p12) + `senha` |
+| POST | `/empresas/{id}/integracao-sefaz/sincronizacoes` | escritório | "Buscar agora" (202). Responde 422 durante a espera de 1 h exigida pela SEFAZ |
+
+- **Manifestação:** `Ciencia` não é conclusiva (libera o XML completo e admite outra depois); `Confirmada`, `Desconhecida` e `NaoRealizada` (justificativa de 15 a 255 caracteres) são finais. NF-e cancelada não é manifestada. Com certificado e integração ligada, o evento (210200/210210/210220/210240) é assinado e enviado à SEFAZ antes de gravar; recusa volta 422 com o motivo da SEFAZ. Sem certificado, a manifestação fica registrada só no Contix (`manifestacaoEnviadaSefaz = false`).
+- **Importação manual:** só aceita NF-e modelo 55 cujo destinatário é a própria empresa; chave de acesso única por empresa (reimportar não duplica, e o XML completo substitui o resumo da SEFAZ).
+- **Certificado A1:** validado no envio (senha, chave privada, validade e CNPJ do titular, pelo OID 2.16.76.1.3.3 do SubjectAltName ou pelo `NOME:CNPJ` do CN, com a mesma raiz de CNPJ da empresa). O .pfx e a senha são guardados com AES-256-GCM (`Criptografia:Chave`); só os metadados ficam legíveis. Ao substituir ou remover, o conteúdo criptografado do anterior é apagado.
+- **Busca automática (Distribuição DF-e):** o job (a cada `NFe:Sefaz:IntervaloMinutos`) consulta `nfeDistDFeInteresse` por NSU, com o certificado da empresa (TLS mútuo) e a UF do endereço (`cUFAutor`). Resumos (`resNFe`) e notas completas (`procNFe`) entram na lista com `origem = Sefaz`; o evento de cancelamento marca a nota como `Cancelada`. Com `cienciaAutomatica`, as notas novas recebem a Ciência da Operação e o XML completo chega na busca seguinte. Regras da SEFAZ respeitadas: sem documentos novos (137) ou consumo indevido (656) esperam 1 h; falha de comunicação tenta de novo em 15 min; até 10 consultas seguidas por empresa por execução.
+- **Provider** (`NFe:Sefaz:Provider`): `Desabilitado` (padrão), `Simulado` (Development e testes: três notas fictícias por CNPJ, uma delas cancelada; aceita qualquer certificado) ou `Sefaz` (web services reais do Ambiente Nacional em `NFe:Sefaz:Ambiente` = `Homologacao` ou `Producao`).
+- **Certificado de teste:** para o simulador, gere um A1 autoassinado com o CNPJ no CN:
+  `openssl req -x509 -newkey rsa:2048 -nodes -days 365 -subj "/CN=EMPRESA TESTE:44555666000181" -keyout k.pem -out c.pem && openssl pkcs12 -export -inkey k.pem -in c.pem -out teste.pfx -passout pass:1234`
+
+### Consulta de CNPJ
+
+| Método | Rota | Perfil | Descrição |
+| --- | --- | --- | --- |
+| GET | `/consulta-cnpj/{cnpj}` | escritório | Razão social, nome fantasia, situação, endereço, contatos, atividade, início e regime sugerido (Simples/MEI) para preencher o cadastro |
+
+- **Provedores** (`ConsultaCnpj:Provedores`, em ordem): `BrasilApi` e `ReceitaWs` (APIs públicas, sem chave; o segundo só é usado se o primeiro estiver fora do ar) ou `Simulado`. Respostas ficam em cache por `ConsultaCnpj:CacheHoras` (24 h). CNPJ inexistente responde 404; todos os provedores fora do ar, 422.
+
 ## Configuração
 
 Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de ambiente (`Secao__Chave`).
@@ -202,6 +232,10 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 | `Swagger__Enabled` | Expõe o Swagger (ligado em Development) |
 | `Certidoes__Emissao__Provider` | `Desabilitado` (padrão), `Simulado` (Development: certidão fictícia; razão social com "PENDENTE" simula recusa) ou `Infosimples` |
 | `Certidoes__Emissao__Infosimples__Token` | Token da API Infosimples. **Secret**; sem ele a emissão fica desabilitada |
+| `Criptografia__Chave` | Chave AES-256 (Base64 de 32 bytes, `openssl rand -base64 32`) dos certificados A1 guardados. **Secret**; trocá-la invalida os certificados já enviados |
+| `NFe__Sefaz__Provider` / `NFe__Sefaz__Ambiente` | `Desabilitado`, `Simulado` ou `Sefaz`; `Homologacao` ou `Producao` |
+| `NFe__Sefaz__CadeiaIcpBrasil` | Pasta com os certificados (.crt/.cer/.pem) das ACs da ICP-Brasil. Os servidores da SEFAZ usam certificados ICP-Brasil, que não estão no repositório de confiança padrão do Linux |
+| `ConsultaCnpj__Provedores__N` | Provedores da consulta de CNPJ, em ordem (`BrasilApi`, `ReceitaWs`, `Simulado`) |
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
 
@@ -229,4 +263,4 @@ Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migr
 
 ## Próximos passos (backlog)
 
-Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), editor rico nas notícias, emissão automática de CND estadual e municipal, NF-e, tarefas recorrentes (obrigações mensais). Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
+Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), editor rico nas notícias, emissão automática de CND estadual e municipal, DANFE em PDF e aviso de NF-e nova ao cliente, tarefas recorrentes (obrigações mensais). Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.

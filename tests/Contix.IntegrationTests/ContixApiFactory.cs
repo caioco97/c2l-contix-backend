@@ -31,6 +31,11 @@ public sealed class ContixApiFactory : WebApplicationFactory<Program>, IAsyncLif
         builder.UseSetting("Certidoes:Emissao:Provider", "Simulado");
         builder.UseSetting("Certidoes:Emissao:ProcessarFila", "false");
         builder.UseSetting("Notificacoes:UrlFrontend", "https://app.contix.test");
+        builder.UseSetting("Criptografia:Chave", Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32)));
+        builder.UseSetting("NFe:Sefaz:Provider", "Simulado");
+        builder.UseSetting("NFe:Sefaz:ProcessarFila", "false");
+        builder.UseSetting("ConsultaCnpj:Provedores:0", "Simulado");
+        builder.UseSetting("ConsultaCnpj:Provedores:1", "Simulado");
     }
 
     public Task InitializeAsync() => _db?.StartAsync() ?? Task.CompletedTask;
