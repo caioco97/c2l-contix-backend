@@ -247,7 +247,7 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
 
-Atrás de proxy/ingress, informe as redes confiáveis em `ForwardedHeaders__RedesConfiaveis__0` (CIDR, ex.: `10.0.0.0/8`) para que o IP real do usuário apareça no histórico de auditoria dos documentos e no rate limit.
+Atrás de proxy/ingress, informe as redes confiáveis em `ForwardedHeaders__RedesConfiaveis__0` (CIDR, ex.: `10.0.0.0/8`) para que o IP real do usuário apareça no histórico de auditoria dos documentos e no rate limit. Informe só a rede do proxy: qualquer host nela pode declarar o IP de origem. No `docker compose` o padrão é a rede interna do projeto (`172.28.10.0/24`, ajustável por `COMPOSE_SUBNET` e `PROXY_REDE_CONFIAVEL`).
 
 ### Recuperação de senha
 
