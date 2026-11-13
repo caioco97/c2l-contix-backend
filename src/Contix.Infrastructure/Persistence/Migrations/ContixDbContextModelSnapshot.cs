@@ -425,6 +425,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("email");
 
+                    b.Property<Guid?>("ExcluidaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("excluida_por_id");
+
                     b.Property<string>("InscricaoEstadual")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")

@@ -11,7 +11,8 @@ public sealed class SolicitacaoRepository(ContixDbContext context) : Repository<
     public Task<PagedResult<SolicitacaoResumoDto>> PesquisarAsync(
         SolicitacaoFiltro filtro, Guid? somenteEmpresaId, DateOnly hoje, CancellationToken ct = default)
     {
-        var q = Set.AsNoTracking();
+        // Solicitações de empresas excluídas saem das listas (continuam no banco, no histórico da empresa).
+        var q = Set.AsNoTracking().Where(s => !s.Empresa!.IsDeleted);
 
         if (somenteEmpresaId is { } empresaId) q = q.Where(s => s.EmpresaId == empresaId);
         if (filtro.Tipo is { } tipo) q = q.Where(s => s.Tipo == tipo);

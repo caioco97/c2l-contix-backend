@@ -24,6 +24,8 @@ public class Empresa : TenantEntity
     public string? Email { get; set; }
     public string? Telefone { get; set; }
     public Endereco? Endereco { get; set; }
+    /// <summary>Usuário do escritório que excluiu a empresa (exclusão lógica).</summary>
+    public Guid? ExcluidaPorId { get; set; }
 
     public ICollection<Pasta> Pastas { get; set; } = new List<Pasta>();
     public ICollection<UsuarioEmpresa> Usuarios { get; set; } = new List<UsuarioEmpresa>();
