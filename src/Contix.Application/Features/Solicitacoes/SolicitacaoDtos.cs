@@ -10,7 +10,8 @@ public sealed record SolicitacaoResumoDto(
     Guid Id, int Numero, Guid EmpresaId, string EmpresaNome, TipoSolicitacao Tipo, string TipoNome,
     string Assunto, Departamento Departamento, StatusSolicitacao Status,
     Guid SolicitanteId, string SolicitanteNome, Guid? ResponsavelId, string? ResponsavelNome,
-    DateOnly? Prazo, bool Atrasada, DateTime CreatedAt, DateTime? UpdatedAt);
+    DateOnly? Prazo, bool Atrasada, DateTime CreatedAt, DateTime? UpdatedAt,
+    Guid? EmpregadoId = null, string? EmpregadoNome = null);
 
 public sealed record AnexoDto(Guid Id, string NomeArquivo, string ContentType, long TamanhoBytes, string EnviadoPorNome, DateTime CreatedAt);
 
@@ -20,7 +21,8 @@ public sealed record InteracaoDto(
 
 public sealed record SolicitacaoDto(
     Guid Id, int Numero, Guid EmpresaId, string EmpresaNome, TipoSolicitacao Tipo, string TipoNome,
-    string Assunto, Departamento Departamento, string? Descricao, JsonElement? Dados, StatusSolicitacao Status,
+    string Assunto, Departamento Departamento, string? Descricao, JsonElement? Dados,
+    Guid? EmpregadoId, string? EmpregadoNome, StatusSolicitacao Status,
     Guid SolicitanteId, string SolicitanteNome, Guid? ResponsavelId, string? ResponsavelNome,
     DateOnly? Prazo, bool Atrasada, DateTime? FinalizadaEm, DateTime CreatedAt, DateTime? UpdatedAt,
     IReadOnlyList<StatusSolicitacao> TransicoesPermitidas,
@@ -38,6 +40,8 @@ public sealed record SolicitacaoFiltro : PageQuery
     public Guid? ResponsavelId { get; init; }
     public bool? SemResponsavel { get; init; }
     public bool? Atrasadas { get; init; }
+    /// <summary>Solicitações do empregado (inclusive lançamentos de rubricas em que ele aparece).</summary>
+    public Guid? EmpregadoId { get; init; }
     /// <summary>Busca por número ou assunto.</summary>
     public string? Busca { get; init; }
 }

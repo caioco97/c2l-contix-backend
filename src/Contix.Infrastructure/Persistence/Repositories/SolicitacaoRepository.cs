@@ -21,6 +21,12 @@ public sealed class SolicitacaoRepository(ContixDbContext context) : Repository<
             q = q.Where(s => s.Status != StatusSolicitacao.Concluida && s.Status != StatusSolicitacao.Cancelada);
         if (filtro.Departamento is { } departamento) q = q.Where(s => s.Departamento == departamento);
         if (filtro.ResponsavelId is { } responsavelId) q = q.Where(s => s.ResponsavelId == responsavelId);
+        if (filtro.EmpregadoId is { } empregadoId)
+        {
+            var lancamento = $$"""{"lancamentos":[{"empregadoId":"{{empregadoId}}"}]}""";
+            q = q.Where(s => s.EmpregadoId == empregadoId
+                             || (s.Tipo == TipoSolicitacao.LancamentoRubricas && EF.Functions.JsonContains(s.Dados!, lancamento)));
+        }
         if (filtro.SemResponsavel == true) q = q.Where(s => s.ResponsavelId == null);
         if (filtro.Atrasadas == true)
             q = q.Where(s => s.Prazo != null && s.Prazo < hoje
@@ -53,7 +59,7 @@ public sealed class SolicitacaoRepository(ContixDbContext context) : Repository<
                 s.ResponsavelId, s.Responsavel != null ? s.Responsavel.Nome : null, s.Prazo,
                 s.Prazo != null && s.Prazo < hoje
                     && s.Status != StatusSolicitacao.Concluida && s.Status != StatusSolicitacao.Cancelada,
-                s.CreatedAt, s.UpdatedAt))
+                s.CreatedAt, s.UpdatedAt, s.EmpregadoId, s.Empregado != null ? s.Empregado.Nome : null))
             .ToPagedAsync(filtro, ct)
             .ContinueWith(t => t.Result with
             {
@@ -65,6 +71,7 @@ public sealed class SolicitacaoRepository(ContixDbContext context) : Repository<
         Set.Include(s => s.Empresa)
             .Include(s => s.Solicitante)
             .Include(s => s.Responsavel)
+            .Include(s => s.Empregado)
             .Include(s => s.Interacoes).ThenInclude(i => i.Autor)
             .Include(s => s.Anexos).ThenInclude(a => a.EnviadoPor)
             .AsSplitQuery()

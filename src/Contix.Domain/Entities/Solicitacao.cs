@@ -39,6 +39,12 @@ public class Solicitacao : TenantEntity
     public string? Descricao { get; set; }
     /// <summary>Campos específicos do tipo (férias, rescisão...), em JSON.</summary>
     public string? Dados { get; set; }
+    /// <summary>
+    /// Empregado a que a solicitação se refere (férias, rescisão, afastamento) ou que ela gerou (cadastros, ao concluir).
+    /// Lançamentos de rubricas referenciam vários empregados dentro de <see cref="Dados"/>.
+    /// </summary>
+    public Guid? EmpregadoId { get; set; }
+    public Empregado? Empregado { get; set; }
 
     public StatusSolicitacao Status { get; private set; } = StatusSolicitacao.Aberta;
     public Guid SolicitanteId { get; set; }

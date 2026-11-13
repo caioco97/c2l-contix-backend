@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Contix.Application.Common.Models;
 using Contix.Application.Common.Validation;
+using Contix.Domain.Entities;
 using Contix.Domain.Enums;
 using Contix.Domain.ValueObjects;
 using FluentValidation;
@@ -18,23 +19,27 @@ public sealed record DadosCadastroPessoa(
     string? Cargo, decimal? Salario, string? Jornada, DateOnly? DataAdmissao,
     string? InstituicaoEnsino, string? Curso, DateOnly? DataTerminoEstagio);
 
+/* Os formulários de férias, rescisão, afastamento e rubricas referenciam o empregado pelo cadastro da
+   empresa (EmpregadoId). O nome (Empregado) é preenchido pela API a partir do cadastro e fica gravado
+   para o histórico, mesmo que o cadastro mude depois. */
+
 public sealed record DadosFerias(
-    string Empregado, DateOnly PeriodoAquisitivoInicio, DateOnly PeriodoAquisitivoFim,
+    Guid EmpregadoId, string? Empregado, DateOnly PeriodoAquisitivoInicio, DateOnly PeriodoAquisitivoFim,
     DateOnly DataInicio, int Dias, bool AbonoPecuniario, bool Adiantamento13);
 
 public enum TipoDesligamento { SemJustaCausa = 1, ComJustaCausa, PedidoDemissao, AcordoMutuo, TerminoContrato }
 public enum TipoAvisoPrevio { Trabalhado = 1, Indenizado, Dispensado }
 
 public sealed record DadosRescisao(
-    string Empregado, TipoDesligamento TipoDesligamento, DateOnly DataDesligamento,
+    Guid EmpregadoId, string? Empregado, TipoDesligamento TipoDesligamento, DateOnly DataDesligamento,
     TipoAvisoPrevio AvisoPrevio, string? Observacoes);
 
 public enum MotivoAfastamento { Doenca = 1, AcidenteTrabalho, LicencaMaternidade, LicencaPaternidade, ServicoMilitar, Outros }
 
 public sealed record DadosAfastamento(
-    string Empregado, MotivoAfastamento Motivo, DateOnly DataInicio, DateOnly? PrevisaoRetorno, string? Observacoes);
+    Guid EmpregadoId, string? Empregado, MotivoAfastamento Motivo, DateOnly DataInicio, DateOnly? PrevisaoRetorno, string? Observacoes);
 
-public sealed record LancamentoRubrica(string Empregado, string Rubrica, decimal? Quantidade, decimal? Valor);
+public sealed record LancamentoRubrica(Guid EmpregadoId, string? Empregado, string Rubrica, decimal? Quantidade, decimal? Valor);
 
 public sealed record DadosRubricas(DateOnly Competencia, IReadOnlyList<LancamentoRubrica> Lancamentos);
 
@@ -50,29 +55,87 @@ public static class FormulariosSolicitacao
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
 
-    public sealed record Resultado(string? DadosJson, string AssuntoSugerido);
+    /// <param name="EmpregadoId">Empregado a que a solicitação se refere (tipos de um único empregado).</param>
+    public sealed record Resultado(string? DadosJson, string AssuntoSugerido, Guid? EmpregadoId = null);
 
-    public static Resultado Processar(TipoSolicitacao tipo, string? dadosJson)
+    /// <summary>Tipos cujo formulário referencia um único empregado do cadastro.</summary>
+    public static bool ReferenciaEmpregado(TipoSolicitacao tipo) => tipo is
+        TipoSolicitacao.AvisoFerias or TipoSolicitacao.CalculoFerias or TipoSolicitacao.AvisoRescisao or
+        TipoSolicitacao.CalculoRescisao or TipoSolicitacao.Afastamento;
+
+    public static bool EhCadastroDePessoa(TipoSolicitacao tipo) => tipo is
+        TipoSolicitacao.CadastroEmpregado or TipoSolicitacao.CadastroContribuinte or TipoSolicitacao.CadastroEstagiario;
+
+    /// <summary>
+    /// Ids de empregado citados nos dados, para o serviço carregar o cadastro antes de <see cref="Processar"/>.
+    /// Tolerante a JSON inválido (a validação completa acontece em <see cref="Processar"/>).
+    /// </summary>
+    public static IReadOnlyCollection<Guid> EmpregadosReferenciados(TipoSolicitacao tipo, string? dadosJson)
+    {
+        if (string.IsNullOrWhiteSpace(dadosJson) || (!ReferenciaEmpregado(tipo) && tipo != TipoSolicitacao.LancamentoRubricas))
+            return [];
+        try
+        {
+            using var doc = JsonDocument.Parse(dadosJson);
+            var raiz = doc.RootElement;
+            if (raiz.ValueKind != JsonValueKind.Object) return [];
+            var ids = new HashSet<Guid>();
+            void Ler(JsonElement e)
+            {
+                if (e.ValueKind == JsonValueKind.Object && e.TryGetProperty("empregadoId", out var v)
+                    && v.ValueKind == JsonValueKind.String && v.TryGetGuid(out var id)) ids.Add(id);
+            }
+            if (tipo == TipoSolicitacao.LancamentoRubricas)
+            {
+                if (raiz.TryGetProperty("lancamentos", out var l) && l.ValueKind == JsonValueKind.Array)
+                    foreach (var item in l.EnumerateArray().Take(500)) Ler(item);
+            }
+            else Ler(raiz);
+            return ids;
+        }
+        catch (JsonException) { return []; }
+    }
+
+    /// <param name="empregados">Cadastro dos empregados citados (de <see cref="EmpregadosReferenciados"/>), da empresa da solicitação.</param>
+    public static Resultado Processar(TipoSolicitacao tipo, string? dadosJson, IReadOnlyDictionary<Guid, Empregado>? empregados = null)
     {
         var nome = CatalogoSolicitacoes.Obter(tipo).Nome;
+        var cadastro = empregados ?? new Dictionary<Guid, Empregado>();
+        string NomeDe(Guid id) => cadastro[id].Nome;
+
         return tipo switch
         {
             TipoSolicitacao.Geral => new Resultado(null, nome),
             TipoSolicitacao.CadastroEmpregado or TipoSolicitacao.CadastroContribuinte or TipoSolicitacao.CadastroEstagiario =>
-                Validar(dadosJson, ValidadorCadastro(tipo), d => $"{nome} - {d.Nome.Trim()}"),
+                Validar(dadosJson, ValidadorCadastro(tipo), d => d, d => $"{nome} - {d.Nome.Trim()}"),
             TipoSolicitacao.AvisoFerias or TipoSolicitacao.CalculoFerias =>
-                Validar(dadosJson, ValidadorFerias(), d => $"{nome} - {d.Empregado.Trim()}"),
+                Validar(dadosJson, ValidadorFerias(cadastro), d => d with { Empregado = NomeDe(d.EmpregadoId) },
+                    d => $"{nome} - {d.Empregado}", d => d.EmpregadoId),
             TipoSolicitacao.AvisoRescisao or TipoSolicitacao.CalculoRescisao =>
-                Validar(dadosJson, ValidadorRescisao(), d => $"{nome} - {d.Empregado.Trim()}"),
+                Validar(dadosJson, ValidadorRescisao(cadastro), d => d with { Empregado = NomeDe(d.EmpregadoId) },
+                    d => $"{nome} - {d.Empregado}", d => d.EmpregadoId),
             TipoSolicitacao.Afastamento =>
-                Validar(dadosJson, ValidadorAfastamento(), d => $"{nome} - {d.Empregado.Trim()}"),
+                Validar(dadosJson, ValidadorAfastamento(cadastro), d => d with { Empregado = NomeDe(d.EmpregadoId) },
+                    d => $"{nome} - {d.Empregado}", d => d.EmpregadoId),
             TipoSolicitacao.LancamentoRubricas =>
-                Validar(dadosJson, ValidadorRubricas(), d => $"{nome} - {d.Competencia:MM/yyyy}"),
+                Validar(dadosJson, ValidadorRubricas(cadastro),
+                    d => d with { Lancamentos = d.Lancamentos.Select(l => l with { Empregado = NomeDe(l.EmpregadoId) }).ToList() },
+                    d => $"{nome} - {d.Competencia:MM/yyyy}"),
             _ => throw new ValidationException([new ValidationFailure("tipo", "Tipo de solicitação inválido.")])
         };
     }
 
-    private static Resultado Validar<T>(string? json, IValidator<T> validador, Func<T, string> assunto) where T : class
+    /// <summary>Lê os dados gravados de uma solicitação (já validados na abertura).</summary>
+    public static T? Ler<T>(string? dadosJson) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(dadosJson)) return null;
+        try { return JsonSerializer.Deserialize<T>(dadosJson, Json); }
+        catch (JsonException) { return null; }
+    }
+
+    private static Resultado Validar<T>(
+        string? json, IValidator<T> validador, Func<T, T> normalizar, Func<T, string> assunto,
+        Func<T, Guid>? empregado = null) where T : class
     {
         if (string.IsNullOrWhiteSpace(json))
             throw new ValidationException([new ValidationFailure("dados", "Preencha os dados do formulário.")]);
@@ -91,7 +154,8 @@ public static class FormulariosSolicitacao
             throw new ValidationException(resultado.Errors.Select(e =>
                 new ValidationFailure("dados." + CamelCase(e.PropertyName), e.ErrorMessage)));
 
-        return new Resultado(JsonSerializer.Serialize(dados, Json), Limitar(assunto(dados), 200));
+        dados = normalizar(dados);
+        return new Resultado(JsonSerializer.Serialize(dados, Json), Limitar(assunto(dados), 200), empregado?.Invoke(dados));
     }
 
     private static string CamelCase(string propriedade) =>
@@ -134,10 +198,20 @@ public static class FormulariosSolicitacao
         return v;
     }
 
-    private static InlineValidator<DadosFerias> ValidadorFerias()
+    /// <summary>O empregado precisa estar no cadastro da empresa e não pode estar desligado.</summary>
+    private static void RegraEmpregado<T>(AbstractValidator<T> v, System.Linq.Expressions.Expression<Func<T, Guid>> campo,
+        IReadOnlyDictionary<Guid, Empregado> cadastro)
+    {
+        v.RuleFor(campo).Cascade(CascadeMode.Stop)
+            .NotEmpty().WithMessage("Selecione o empregado.")
+            .Must(cadastro.ContainsKey).WithMessage("Selecione um empregado cadastrado nesta empresa.")
+            .Must(id => !cadastro[id].EstaDesligado).WithMessage("Este empregado está desligado.");
+    }
+
+    private static InlineValidator<DadosFerias> ValidadorFerias(IReadOnlyDictionary<Guid, Empregado> cadastro)
     {
         var v = new InlineValidator<DadosFerias>();
-        v.RuleFor(x => x.Empregado).NotEmpty().WithName("Empregado").MaximumLength(150);
+        RegraEmpregado(v, x => x.EmpregadoId, cadastro);
         v.RuleFor(x => x.PeriodoAquisitivoInicio).NotEmpty().WithName("Início do período aquisitivo");
         v.RuleFor(x => x.PeriodoAquisitivoFim).NotEmpty().WithName("Fim do período aquisitivo")
             .GreaterThan(x => x.PeriodoAquisitivoInicio).WithMessage("O fim do período aquisitivo deve ser após o início.");
@@ -148,10 +222,10 @@ public static class FormulariosSolicitacao
         return v;
     }
 
-    private static InlineValidator<DadosRescisao> ValidadorRescisao()
+    private static InlineValidator<DadosRescisao> ValidadorRescisao(IReadOnlyDictionary<Guid, Empregado> cadastro)
     {
         var v = new InlineValidator<DadosRescisao>();
-        v.RuleFor(x => x.Empregado).NotEmpty().WithName("Empregado").MaximumLength(150);
+        RegraEmpregado(v, x => x.EmpregadoId, cadastro);
         v.RuleFor(x => x.TipoDesligamento).IsInEnum().NotEmpty().WithName("Tipo de desligamento");
         v.RuleFor(x => x.DataDesligamento).NotEmpty().WithName("Data do desligamento");
         v.RuleFor(x => x.AvisoPrevio).IsInEnum().NotEmpty().WithName("Aviso prévio");
@@ -159,10 +233,10 @@ public static class FormulariosSolicitacao
         return v;
     }
 
-    private static InlineValidator<DadosAfastamento> ValidadorAfastamento()
+    private static InlineValidator<DadosAfastamento> ValidadorAfastamento(IReadOnlyDictionary<Guid, Empregado> cadastro)
     {
         var v = new InlineValidator<DadosAfastamento>();
-        v.RuleFor(x => x.Empregado).NotEmpty().WithName("Empregado").MaximumLength(150);
+        RegraEmpregado(v, x => x.EmpregadoId, cadastro);
         v.RuleFor(x => x.Motivo).IsInEnum().NotEmpty().WithName("Motivo");
         v.RuleFor(x => x.DataInicio).NotEmpty().WithName("Início do afastamento");
         v.RuleFor(x => x.PrevisaoRetorno).GreaterThanOrEqualTo(x => x.DataInicio).When(x => x.PrevisaoRetorno is not null)
@@ -171,7 +245,7 @@ public static class FormulariosSolicitacao
         return v;
     }
 
-    private static InlineValidator<DadosRubricas> ValidadorRubricas()
+    private static InlineValidator<DadosRubricas> ValidadorRubricas(IReadOnlyDictionary<Guid, Empregado> cadastro)
     {
         var v = new InlineValidator<DadosRubricas>();
         v.RuleFor(x => x.Competencia).NotEmpty().WithName("Competência");
@@ -179,7 +253,10 @@ public static class FormulariosSolicitacao
             .Must(l => l.Count <= 500).WithMessage("Informe no máximo 500 lançamentos por solicitação.");
         v.RuleForEach(x => x.Lancamentos).ChildRules(l =>
         {
-            l.RuleFor(x => x.Empregado).NotEmpty().WithName("Empregado").MaximumLength(150);
+            l.RuleFor(x => x.EmpregadoId).Cascade(CascadeMode.Stop)
+                .NotEmpty().WithMessage("Selecione o empregado.")
+                .Must(cadastro.ContainsKey).WithMessage("Selecione um empregado cadastrado nesta empresa.")
+                .Must(id => !cadastro[id].EstaDesligado).WithMessage("Este empregado está desligado.");
             l.RuleFor(x => x.Rubrica).NotEmpty().WithName("Rubrica").MaximumLength(100);
             l.RuleFor(x => x).Must(x => x.Quantidade is > 0 || x.Valor is > 0).OverridePropertyName("valor")
                 .WithMessage("Informe a quantidade ou o valor.");

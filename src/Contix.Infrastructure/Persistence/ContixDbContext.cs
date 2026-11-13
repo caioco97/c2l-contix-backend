@@ -13,6 +13,7 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<UsuarioEmpresa> UsuarioEmpresas => Set<UsuarioEmpresa>();
     public DbSet<Empresa> Empresas => Set<Empresa>();
+    public DbSet<Empregado> Empregados => Set<Empregado>();
     public DbSet<Pasta> Pastas => Set<Pasta>();
     public DbSet<Documento> Documentos => Set<Documento>();
     public DbSet<DocumentoLeitura> DocumentoLeituras => Set<DocumentoLeitura>();

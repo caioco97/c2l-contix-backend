@@ -99,7 +99,9 @@ public sealed class DbInitializer(
         context.Pastas.AddRange(pastas);
         context.Pastas.Add(darf);
         context.Documentos.Add(documento);
-        context.Solicitacoes.AddRange(SolicitacoesDemo(escritorio, empresa, cliente, colaborador, agora));
+        var empregados = EmpregadosDemo(escritorio, empresa, agora);
+        context.Empregados.AddRange(empregados);
+        context.Solicitacoes.AddRange(SolicitacoesDemo(escritorio, empresa, cliente, colaborador, empregados[0], agora));
         context.Noticias.AddRange(NoticiasDemo(escritorio, colaborador, agora));
         context.Certidoes.AddRange(CertidoesDemo(escritorio, empresa, colaborador, agora));
         await context.SaveChangesAsync(ct);
@@ -109,8 +111,26 @@ public sealed class DbInitializer(
             SenhaDemo);
     }
 
+    private static List<Empregado> EmpregadosDemo(Escritorio escritorio, Empresa empresa, DateTime agora)
+    {
+        var hoje = DateOnly.FromDateTime(agora);
+        Empregado Novo(string nome, string cpf, string matricula, string cargo, DateOnly admissao,
+            VinculoEmpregado vinculo = VinculoEmpregado.Empregado) => new()
+        {
+            TenantId = escritorio.Id, EmpresaId = empresa.Id, Nome = nome, Cpf = cpf, Matricula = matricula,
+            Cargo = cargo, DataAdmissao = admissao, Vinculo = vinculo
+        };
+        return
+        [
+            Novo("Maria Souza", "52998224725", "0001", "Analista financeira", hoje.AddYears(-2)),
+            Novo("João Pereira", "11144477735", "0002", "Vendedor", hoje.AddYears(-1).AddMonths(-3)),
+            Novo("Ana Martins", "39053344705", "0003", "Assistente administrativa", hoje.AddMonths(-4)),
+            Novo("Carlos Lima", "15350946056", "0004", "Sócio-administrador", hoje.AddYears(-5), VinculoEmpregado.Contribuinte),
+        ];
+    }
+
     private static IEnumerable<Solicitacao> SolicitacoesDemo(
-        Escritorio escritorio, Empresa empresa, Usuario cliente, Usuario colaborador, DateTime agora)
+        Escritorio escritorio, Empresa empresa, Usuario cliente, Usuario colaborador, Empregado maria, DateTime agora)
     {
         var hoje = DateOnly.FromDateTime(agora);
 
@@ -128,7 +148,8 @@ public sealed class DbInitializer(
         {
             TenantId = escritorio.Id, EmpresaId = empresa.Id, Numero = 2, Tipo = TipoSolicitacao.AvisoFerias,
             Departamento = Departamento.Pessoal, Assunto = "Aviso Prévio de Férias - Maria Souza", SolicitanteId = cliente.Id,
-            Dados = $$"""{"empregado":"Maria Souza","periodoAquisitivoInicio":"{{hoje.AddYears(-1):yyyy-MM-dd}}","periodoAquisitivoFim":"{{hoje.AddDays(-1):yyyy-MM-dd}}","dataInicio":"{{hoje.AddDays(35):yyyy-MM-dd}}","dias":30,"abonoPecuniario":false,"adiantamento13":true}"""
+            EmpregadoId = maria.Id,
+            Dados = $$"""{"empregadoId":"{{maria.Id}}","empregado":"Maria Souza","periodoAquisitivoInicio":"{{hoje.AddYears(-1):yyyy-MM-dd}}","periodoAquisitivoFim":"{{hoje.AddDays(-1):yyyy-MM-dd}}","dataInicio":"{{hoje.AddDays(35):yyyy-MM-dd}}","dias":30,"abonoPecuniario":false,"adiantamento13":true}"""
         };
         ferias.RegistrarAbertura(agora.AddHours(-5), hoje.AddDays(5));
         ferias.AlterarStatus(StatusSolicitacao.AguardandoCliente, colaborador.Id, false,
