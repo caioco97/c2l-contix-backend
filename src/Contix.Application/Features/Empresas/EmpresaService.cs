@@ -94,12 +94,12 @@ public sealed class EmpresaService(
         e.RazaoSocial = r.RazaoSocial.Trim();
         e.NomeFantasia = r.NomeFantasia?.Trim();
         e.Apelido = r.Apelido?.Trim();
-        e.InscricaoEstadual = r.InscricaoEstadual?.Trim();
-        e.InscricaoMunicipal = r.InscricaoMunicipal?.Trim();
+        e.InscricaoEstadual = DadosBrasileiros.NormalizarInscricaoEstadual(r.InscricaoEstadual);
+        e.InscricaoMunicipal = DadosBrasileiros.NormalizarInscricaoMunicipal(r.InscricaoMunicipal);
         e.RegimeTributario = r.RegimeTributario;
         e.Situacao = r.Situacao;
         e.Email = r.Email?.Trim().ToLowerInvariant();
-        e.Telefone = r.Telefone?.Trim();
+        e.Telefone = DadosBrasileiros.NormalizarTelefone(r.Telefone);
         e.Endereco = r.Endereco?.ToEntity();
     }
 }

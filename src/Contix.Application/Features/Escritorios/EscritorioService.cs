@@ -1,3 +1,4 @@
+using Contix.Domain.ValueObjects;
 using Contix.Application.Common.Abstractions;
 using Contix.Application.Common.Exceptions;
 using Contix.Domain.Entities;
@@ -30,7 +31,7 @@ public sealed class EscritorioService(
         e.NomeFantasia = request.NomeFantasia?.Trim();
         e.Crc = request.Crc?.Trim();
         e.Email = request.Email?.Trim().ToLowerInvariant();
-        e.Telefone = request.Telefone?.Trim();
+        e.Telefone = DadosBrasileiros.NormalizarTelefone(request.Telefone);
         e.Endereco = request.Endereco?.ToEntity();
         e.LogoUrl = request.LogoUrl;
         if (request.DiasLembreteVencimento is { } dias) e.DiasLembreteVencimento = dias;

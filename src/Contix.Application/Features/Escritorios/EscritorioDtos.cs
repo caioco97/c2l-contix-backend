@@ -28,7 +28,7 @@ public sealed class AtualizarEscritorioRequestValidator : AbstractValidator<Atua
         RuleFor(x => x.NomeFantasia).MaximumLength(200);
         RuleFor(x => x.Crc).MaximumLength(30);
         RuleFor(x => x.Email).EmailAddress().MaximumLength(200).When(x => !string.IsNullOrWhiteSpace(x.Email));
-        RuleFor(x => x.Telefone).MaximumLength(30);
+        RuleFor(x => x.Telefone).Telefone();
         RuleFor(x => x.LogoUrl).MaximumLength(500);
         RuleFor(x => x.DiasLembreteVencimento).InclusiveBetween(0, 30);
         RuleFor(x => x.Endereco!).SetValidator(new EnderecoValidator()).When(x => x.Endereco is not null);

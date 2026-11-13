@@ -44,12 +44,12 @@ public sealed class SalvarEmpresaRequestValidator : AbstractValidator<SalvarEmpr
         RuleFor(x => x.NomeFantasia).MaximumLength(200);
         RuleFor(x => x.Apelido).MaximumLength(60);
         RuleFor(x => x.Documento).NotEmpty().CpfOuCnpj();
-        RuleFor(x => x.InscricaoEstadual).MaximumLength(30);
-        RuleFor(x => x.InscricaoMunicipal).MaximumLength(30);
+        RuleFor(x => x.InscricaoEstadual).MaximumLength(30).InscricaoEstadual();
+        RuleFor(x => x.InscricaoMunicipal).MaximumLength(30).InscricaoMunicipal();
         RuleFor(x => x.RegimeTributario).IsInEnum();
         RuleFor(x => x.Situacao).IsInEnum();
         RuleFor(x => x.Email).EmailAddress().MaximumLength(200).When(x => !string.IsNullOrWhiteSpace(x.Email));
-        RuleFor(x => x.Telefone).MaximumLength(30);
+        RuleFor(x => x.Telefone).MaximumLength(30).Telefone();
         RuleFor(x => x.Endereco!).SetValidator(new EnderecoValidator()).When(x => x.Endereco is not null);
     }
 }
