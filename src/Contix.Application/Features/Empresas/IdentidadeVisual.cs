@@ -90,7 +90,7 @@ public sealed class IdentidadeVisualService(
 
         empresa.LogoStorageKey = chave;
         empresa.LogoContentType = arquivo.ContentType.ToLowerInvariant();
-        empresa.LogoAtualizadoEm = clock.UtcNow;
+        empresa.LogoAtualizadoEm = Agora();
         try
         {
             await unitOfWork.SaveChangesAsync(ct);
@@ -111,7 +111,7 @@ public sealed class IdentidadeVisualService(
         var anterior = empresa.LogoStorageKey;
         empresa.LogoStorageKey = null;
         empresa.LogoContentType = null;
-        empresa.LogoAtualizadoEm = clock.UtcNow;
+        empresa.LogoAtualizadoEm = Agora();
         await unitOfWork.SaveChangesAsync(ct);
         if (anterior != null) await ApagarAsync(anterior);
         return IdentidadeVisualDto.From(empresa);
@@ -126,6 +126,13 @@ public sealed class IdentidadeVisualService(
 
     private async Task<Empresa> ObterAsync(Guid id, CancellationToken ct) =>
         await empresas.GetByIdAsync(id, ct) ?? throw new NotFoundException("Empresa", id);
+
+    // O PostgreSQL guarda microssegundos: truncar mantém a versão igual antes e depois de salvar.
+    private DateTime Agora()
+    {
+        var agora = clock.UtcNow;
+        return new DateTime(agora.Ticks - agora.Ticks % 10, DateTimeKind.Utc);
+    }
 
     private static string? Normalizar(string? cor) =>
         string.IsNullOrWhiteSpace(cor) ? null : cor.Trim().ToLowerInvariant();
