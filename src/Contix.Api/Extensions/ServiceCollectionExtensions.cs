@@ -80,7 +80,8 @@ public static class ServiceCollectionExtensions
 
         services.AddAuthorizationBuilder()
             .AddPolicy(Policies.Escritorio, p => p.RequireRole(Policies.RolesEscritorio))
-            .AddPolicy(Policies.Administrador, p => p.RequireRole(nameof(Domain.Enums.PerfilUsuario.Administrador)));
+            .AddPolicy(Policies.Administrador, p => p.RequireRole(nameof(Domain.Enums.PerfilUsuario.Administrador)))
+            .AddPolicy(Policies.Cliente, p => p.RequireRole(nameof(Domain.Enums.PerfilUsuario.Cliente)));
 
         return services;
     }

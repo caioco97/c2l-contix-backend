@@ -38,8 +38,11 @@ public sealed class SolicitacoesController(ISolicitacaoService service) : ApiCon
 
     /// <summary>
     /// Abre uma solicitação. Os campos específicos do tipo (férias, rescisão, cadastro...) vão em <c>dados</c>, como JSON.
+    /// Só o usuário do cliente abre; o escritório atende pela fila.
     /// </summary>
     [HttpPost("empresas/{empresaId:guid}/solicitacoes")]
+    [Authorize(Policy = Policies.Cliente)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(SolicitacaoDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<SolicitacaoDto>> Abrir(Guid empresaId, [FromForm] AbrirSolicitacaoForm form, CancellationToken ct)
