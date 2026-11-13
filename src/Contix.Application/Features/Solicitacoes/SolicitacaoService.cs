@@ -3,11 +3,13 @@ using Contix.Application.Common.Abstractions;
 using Contix.Application.Common.Exceptions;
 using Contix.Application.Common.Models;
 using Contix.Application.Features.Documentos;
+using Contix.Application.Features.Empregados;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Usuarios;
 using Contix.Domain.Entities;
 using Contix.Domain.Enums;
+using Contix.Domain.ValueObjects;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
 
@@ -30,6 +32,7 @@ public interface ISolicitacaoService
 public sealed class SolicitacaoService(
     ISolicitacaoRepository solicitacoes,
     IUsuarioRepository usuarios,
+    IEmpregadoRepository empregados,
     IAcessoEmpresaService acesso,
     IFileStorage storage,
     IUnitOfWork unitOfWork,
@@ -68,7 +71,11 @@ public sealed class SolicitacaoService(
         await abrirValidator.ValidateAndThrowAsync(command, ct);
         var (empresa, _) = await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         var tipo = CatalogoSolicitacoes.Obter(command.Tipo);
-        var formulario = FormulariosSolicitacao.Processar(command.Tipo, command.Dados);
+        var citados = FormulariosSolicitacao.EmpregadosReferenciados(command.Tipo, command.Dados);
+        var cadastro = citados.Count == 0
+            ? new Dictionary<Guid, Empregado>()
+            : (await empregados.ListarPorIdsAsync(empresaId, citados, ct)).ToDictionary(e => e.Id);
+        var formulario = FormulariosSolicitacao.Processar(command.Tipo, command.Dados, cadastro);
         var usuarioId = currentUser.RequireUserId();
         var agora = clock.UtcNow;
 
@@ -82,6 +89,7 @@ public sealed class SolicitacaoService(
             Assunto = string.IsNullOrWhiteSpace(command.Assunto) ? formulario.AssuntoSugerido : command.Assunto.Trim(),
             Descricao = string.IsNullOrWhiteSpace(command.Descricao) ? null : command.Descricao.Trim(),
             Dados = formulario.DadosJson,
+            EmpregadoId = formulario.EmpregadoId,
             SolicitanteId = usuarioId
         };
         var abertura = solicitacao.RegistrarAbertura(agora, Hoje.AddDays(tipo.PrazoDias));
@@ -125,6 +133,7 @@ public sealed class SolicitacaoService(
         var anterior = solicitacao.Status;
 
         solicitacao.AlterarStatus(request.Status, currentUser.RequireUserId(), currentUser.EhCliente, request.Mensagem, clock.UtcNow);
+        if (request.Status == StatusSolicitacao.Concluida) await AtualizarCadastroDeEmpregadosAsync(solicitacao, ct);
         await NotificarAtualizacaoAsync(solicitacao,
             $"Solicitação #{solicitacao.Numero}: {NomeStatus(request.Status)}",
             $"A solicitação \"{solicitacao.Assunto}\" passou de {NomeStatus(anterior)} para {NomeStatus(request.Status)}." +
@@ -176,6 +185,47 @@ public sealed class SolicitacaoService(
     }
 
     /* ---------- Auxiliares ---------- */
+
+    /// <summary>
+    /// Ao concluir: cadastros de pessoa entram no cadastro de empregados da empresa (ou se ligam ao
+    /// empregado de mesmo CPF); rescisões marcam o empregado como desligado na data informada.
+    /// </summary>
+    private async Task AtualizarCadastroDeEmpregadosAsync(Solicitacao s, CancellationToken ct)
+    {
+        if (FormulariosSolicitacao.EhCadastroDePessoa(s.Tipo) && s.EmpregadoId is null
+            && FormulariosSolicitacao.Ler<DadosCadastroPessoa>(s.Dados) is { } pessoa)
+        {
+            var cpf = DocumentoFiscal.SomenteDigitos(pessoa.Cpf);
+            var empregado = await empregados.ObterPorCpfAsync(s.EmpresaId, cpf, ct);
+            if (empregado is null)
+            {
+                empregado = new Empregado
+                {
+                    TenantId = s.TenantId, EmpresaId = s.EmpresaId, Nome = pessoa.Nome.Trim(), Cpf = cpf,
+                    Cargo = pessoa.Cargo?.Trim(), DataAdmissao = pessoa.DataAdmissao,
+                    Email = string.IsNullOrWhiteSpace(pessoa.Email) ? null : pessoa.Email.Trim().ToLowerInvariant(),
+                    Telefone = string.IsNullOrWhiteSpace(pessoa.Telefone) ? null : pessoa.Telefone.Trim(),
+                    Vinculo = s.Tipo switch
+                    {
+                        TipoSolicitacao.CadastroContribuinte => VinculoEmpregado.Contribuinte,
+                        TipoSolicitacao.CadastroEstagiario => VinculoEmpregado.Estagiario,
+                        _ => VinculoEmpregado.Empregado
+                    },
+                    SolicitacaoOrigemId = s.Id
+                };
+                await empregados.AddAsync(empregado, ct);
+                logger.LogInformation("Empregado {EmpregadoId} cadastrado pela solicitação {SolicitacaoId}", empregado.Id, s.Id);
+            }
+            s.EmpregadoId = empregado.Id;
+        }
+        else if (s.Tipo is TipoSolicitacao.AvisoRescisao or TipoSolicitacao.CalculoRescisao
+                 && s.EmpregadoId is { } empregadoId
+                 && FormulariosSolicitacao.Ler<DadosRescisao>(s.Dados) is { } rescisao
+                 && await empregados.ObterAsync(s.EmpresaId, empregadoId, ct) is { EstaDesligado: false } desligado)
+        {
+            desligado.Desligar(rescisao.DataDesligamento);
+        }
+    }
 
     /// <summary>
     /// Avisa os participantes (solicitante e responsável). Quando o cliente interage numa solicitação
@@ -277,6 +327,7 @@ public sealed class SolicitacaoService(
             s.Id, s.Numero, s.EmpresaId, s.Empresa?.NomeFantasia ?? s.Empresa?.RazaoSocial ?? "",
             s.Tipo, CatalogoSolicitacoes.Obter(s.Tipo).Nome, s.Assunto, s.Departamento, s.Descricao,
             s.Dados is null ? null : JsonDocument.Parse(s.Dados).RootElement.Clone(),
+            s.EmpregadoId, s.Empregado?.Nome,
             s.Status, s.SolicitanteId, s.Solicitante?.Nome ?? "", s.ResponsavelId, s.Responsavel?.Nome,
             s.Prazo, s.EstaAtrasada(Hoje), s.FinalizadaEm, s.CreatedAt, s.UpdatedAt,
             Solicitacao.TransicoesPermitidas(s.Status, currentUser.EhCliente).ToList(),

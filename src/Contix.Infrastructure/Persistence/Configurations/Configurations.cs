@@ -172,6 +172,8 @@ public sealed class SolicitacaoConfiguration : IEntityTypeConfiguration<Solicita
         b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Solicitante).WithMany().HasForeignKey(x => x.SolicitanteId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(x => x.Responsavel).WithMany().HasForeignKey(x => x.ResponsavelId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Empregado).WithMany().HasForeignKey(x => x.EmpregadoId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(x => x.EmpregadoId);
         b.HasMany(x => x.Interacoes).WithOne().HasForeignKey(x => x.SolicitacaoId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(x => x.Anexos).WithOne().HasForeignKey(x => x.SolicitacaoId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne<Escritorio>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);

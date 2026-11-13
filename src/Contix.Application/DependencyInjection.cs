@@ -1,6 +1,7 @@
 using Contix.Application.Features.Auth;
 using Contix.Application.Features.Certidoes;
 using Contix.Application.Features.Documentos;
+using Contix.Application.Features.Empregados;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Notificacoes;
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddScoped<IUsuarioPortalService, UsuarioPortalService>();
         services.AddScoped<IAcessoEmpresaService, AcessoEmpresaService>();
         services.AddScoped<IEmpresaService, EmpresaService>();
+        services.AddScoped<IEmpregadoService, EmpregadoService>();
         services.AddScoped<IHistoricoEmpresaService, HistoricoEmpresaService>();
         services.AddScoped<IPastaService, PastaService>();
         services.AddScoped<IDocumentoService, DocumentoService>();

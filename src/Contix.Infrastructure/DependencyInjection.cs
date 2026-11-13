@@ -4,6 +4,7 @@ using Contix.Application.Common.Abstractions;
 using Contix.Application.Features.Auth;
 using Contix.Application.Features.Certidoes;
 using Contix.Application.Features.Documentos;
+using Contix.Application.Features.Empregados;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Notificacoes;
@@ -58,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IEmpresaRepository, EmpresaRepository>();
+        services.AddScoped<IEmpregadoRepository, EmpregadoRepository>();
         services.AddScoped<IEmpresaPainelRepository, EmpresaPainelRepository>();
         services.AddScoped<IAvisoRepository, AvisoRepository>();
         services.AddScoped<IPastaRepository, PastaRepository>();

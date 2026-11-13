@@ -27,12 +27,15 @@ public sealed class SolicitacoesTests(ContixApiFactory factory)
     {
         var cliente = await LoginAsync("cliente@contix.dev");
         var empresaId = await EmpresaDemoAsync(cliente);
+        var empregados = (await JsonAsync(await cliente.GetAsync($"/api/v1/empresas/{empresaId}/empregados?ativos=true"))).AsArray();
+        var joaoId = empregados.First(e => e!["nome"]!.GetValue<string>() == "João Pereira")!["id"]!.GetValue<string>();
+        var dados = $$"""{"empregadoId":"{{joaoId}}","motivo":"Doenca","dataInicio":"2026-11-10"}""";
 
         // Afastamento exige anexo.
         var semAnexo = await cliente.PostAsync($"/api/v1/empresas/{empresaId}/solicitacoes", new MultipartFormDataContent
         {
             { new StringContent("Afastamento"), "tipo" },
-            { new StringContent("""{"empregado":"João","motivo":"Doenca","dataInicio":"2026-11-10"}"""), "dados" }
+            { new StringContent(dados), "dados" }
         });
         Assert.Equal(HttpStatusCode.BadRequest, semAnexo.StatusCode);
         Assert.NotNull((await JsonAsync(semAnexo))["errors"]!["anexos"]);
@@ -40,7 +43,7 @@ public sealed class SolicitacoesTests(ContixApiFactory factory)
         var abertura = await cliente.PostAsync($"/api/v1/empresas/{empresaId}/solicitacoes", new MultipartFormDataContent
         {
             { new StringContent("Afastamento"), "tipo" },
-            { new StringContent("""{"empregado":"João","motivo":"Doenca","dataInicio":"2026-11-10"}"""), "dados" },
+            { new StringContent(dados), "dados" },
             { new ByteArrayContent("atestado"u8.ToArray()) { Headers = { ContentType = new("application/pdf") } }, "anexos", "atestado.pdf" }
         });
         Assert.Equal(HttpStatusCode.Created, abertura.StatusCode);
@@ -48,7 +51,9 @@ public sealed class SolicitacoesTests(ContixApiFactory factory)
         var id = criada["id"]!.GetValue<string>();
         Assert.Equal("Aberta", criada["status"]!.GetValue<string>());
         Assert.Equal("Pessoal", criada["departamento"]!.GetValue<string>());
-        Assert.Equal("Afastamento de Empregado - João", criada["assunto"]!.GetValue<string>());
+        Assert.Equal("Afastamento de Empregado - João Pereira", criada["assunto"]!.GetValue<string>());
+        Assert.Equal(joaoId, criada["empregadoId"]!.GetValue<string>());
+        Assert.Equal("João Pereira", criada["empregadoNome"]!.GetValue<string>());
         var anexoId = criada["historico"]![0]!["anexos"]![0]!["id"]!.GetValue<string>();
 
         // Cliente não acessa a fila do escritório nem atribui.
