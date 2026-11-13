@@ -117,7 +117,9 @@ public sealed class NotasFiscaisTests(ContixApiFactory factory)
         Assert.Equal(1, (await JsonAsync(await admin.GetAsync($"{url}?busca=alfa")))["total"]!.GetValue<int>());
         Assert.Equal(1, (await JsonAsync(await admin.GetAsync($"{url}?busca={fornecedorA}")))["total"]!.GetValue<int>());
         Assert.Equal(1, (await JsonAsync(await admin.GetAsync($"{url}?de=2026-11-01&ate=2026-11-30")))["total"]!.GetValue<int>());
-        Assert.Equal(2, (await JsonAsync(await admin.GetAsync($"{url}/resumo")))["semManifestacao"]!.GetValue<int>());
+        var resumo = await JsonAsync(await admin.GetAsync($"{url}/resumo"));
+        Assert.Equal(2, resumo["semManifestacao"]!.GetValue<int>());
+        Assert.Equal(2, resumo["total"]!.GetValue<int>());
 
         var notaA = lista["items"]!.AsArray().Single(n => n!["chaveAcesso"]!.GetValue<string>() == chaveA)!["id"]!.GetValue<string>();
         var xml = await admin.GetAsync($"{url}/{notaA}/xml");
@@ -221,6 +223,9 @@ public sealed class NotasFiscaisTests(ContixApiFactory factory)
         Assert.Equal(4, await ProcessarAsync(sincId));
         var lista = (await JsonAsync(await admin.GetAsync(notas)))["items"]!.AsArray();
         Assert.Equal(3, lista.Count);
+        var resumo = await JsonAsync(await admin.GetAsync($"{notas}/resumo"));
+        Assert.Equal(3, resumo["total"]!.GetValue<int>());
+        Assert.Equal(0, resumo["semManifestacao"]!.GetValue<int>()); // a cancelada não conta como pendente
         Assert.All(lista, n => Assert.Equal("Sefaz", n!["origem"]!.GetValue<string>()));
         Assert.All(lista, n => Assert.False(n!["xmlCompleto"]!.GetValue<bool>()));
         var cancelada = lista.Single(n => n!["situacao"]!.GetValue<string>() == "Cancelada")!;

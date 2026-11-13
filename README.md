@@ -191,7 +191,7 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 | Método | Rota | Perfil | Descrição |
 | --- | --- | --- | --- |
 | GET | `/empresas/{id}/notas-fiscais?de=&ate=&manifestacao=&situacao=&busca=&page=&orderBy=` | módulo NF-e | NF-e emitidas contra o CNPJ da empresa (busca por emitente, CNPJ, número ou chave; `orderBy`: `dataEmissao`, `valor`, `emitente`, `numero`) |
-| GET | `/empresas/{id}/notas-fiscais/resumo` | módulo NF-e | Totais por manifestação (sem as canceladas) |
+| GET | `/empresas/{id}/notas-fiscais/resumo` | módulo NF-e | Total de notas e totais por manifestação (sem as canceladas) |
 | GET | `/empresas/{id}/notas-fiscais/{notaId}` | módulo NF-e | Detalhe |
 | POST | `/empresas/{id}/notas-fiscais/{notaId}/manifestacao` | módulo NF-e | `{ tipo: Ciencia \| Confirmada \| Desconhecida \| NaoRealizada, justificativa? }` |
 | GET | `/empresas/{id}/notas-fiscais/{notaId}/xml` | módulo NF-e | XML completo (ou o resumo da SEFAZ, enquanto não houver ciência) |

@@ -19,7 +19,7 @@ public sealed class NotasFiscaisController(INotaFiscalService notas, IIntegracao
     public Task<PagedResult<NotaFiscalDto>> Listar(Guid empresaId, [FromQuery] NotaFiscalFiltro filtro, CancellationToken ct) =>
         notas.ListarAsync(empresaId, filtro, ct);
 
-    /// <summary>Totais por manifestação (notas canceladas ficam de fora).</summary>
+    /// <summary>Total de notas e totais por manifestação (sem as canceladas).</summary>
     [HttpGet("notas-fiscais/resumo")]
     [ProducesResponseType(typeof(ResumoNotasFiscaisDto), StatusCodes.Status200OK)]
     public Task<ResumoNotasFiscaisDto> Resumo(Guid empresaId, CancellationToken ct) => notas.ResumoAsync(empresaId, ct);

@@ -47,9 +47,11 @@ public sealed class NotaFiscalRepository(ContixDbContext context) : Repository<N
 
     public async Task<ResumoNotasFiscaisDto> ResumoAsync(Guid empresaId, CancellationToken ct = default)
     {
-        var grupos = await Set.AsNoTracking().Where(n => n.EmpresaId == empresaId && n.Situacao != SituacaoNFe.Cancelada)
-            .GroupBy(n => n.Manifestacao).Select(g => new { g.Key, Total = g.Count() }).ToListAsync(ct);
-        int Qtd(ManifestacaoNFe m) => grupos.FirstOrDefault(g => g.Key == m)?.Total ?? 0;
+        var grupos = await Set.AsNoTracking().Where(n => n.EmpresaId == empresaId)
+            .GroupBy(n => new { n.Manifestacao, Cancelada = n.Situacao == SituacaoNFe.Cancelada })
+            .Select(g => new { g.Key.Manifestacao, g.Key.Cancelada, Total = g.Count() }).ToListAsync(ct);
+        // Total: todas as notas. Por manifestação: só as não canceladas (cancelada não se manifesta).
+        int Qtd(ManifestacaoNFe m) => grupos.Where(g => g.Manifestacao == m && !g.Cancelada).Sum(g => g.Total);
         return new ResumoNotasFiscaisDto(grupos.Sum(g => g.Total), Qtd(ManifestacaoNFe.SemManifestacao), Qtd(ManifestacaoNFe.Ciencia),
             Qtd(ManifestacaoNFe.Confirmada), Qtd(ManifestacaoNFe.Desconhecida), Qtd(ManifestacaoNFe.NaoRealizada));
     }

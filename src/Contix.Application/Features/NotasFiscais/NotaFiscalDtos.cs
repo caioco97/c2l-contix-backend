@@ -28,7 +28,7 @@ public sealed record NotaFiscalFiltro : PageQuery
     public string? Busca { get; init; }
 }
 
-/// <summary>Totais por manifestação para os filtros rápidos da tela.</summary>
+/// <summary>Totais para os filtros rápidos da tela: todas as notas e, por manifestação, as não canceladas.</summary>
 public sealed record ResumoNotasFiscaisDto(int Total, int SemManifestacao, int Ciencia, int Confirmadas, int Desconhecidas, int NaoRealizadas);
 
 public sealed record ManifestarNotaFiscalCommand(ManifestacaoNFe Tipo, string? Justificativa);
