@@ -3,6 +3,7 @@ using Contix.Application.Common.Exceptions;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
 using Contix.Domain.Entities;
+using Contix.Domain.Enums;
 
 namespace Contix.Application.Features.Pastas;
 
@@ -23,8 +24,10 @@ public sealed class PastaService(
 {
     public async Task<IReadOnlyList<PastaDto>> ListarArvoreAsync(Guid empresaId, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        var (_, permissoes) = await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Documentos, ct);
         var todas = await pastas.ListarPorEmpresaAsync(empresaId, ct);
+        if (permissoes.PastasVisiveis(todas) is { } visiveis)
+            todas = todas.Where(p => visiveis.Contains(p.Id)).ToList();
         var naoLidos = await documentos.ContarNaoLidosPorPastaAsync(empresaId, currentUser.RequireUserId(), ct);
         return PastaTree.Montar(todas, naoLidos);
     }

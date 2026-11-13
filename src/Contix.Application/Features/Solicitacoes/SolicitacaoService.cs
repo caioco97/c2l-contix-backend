@@ -53,20 +53,20 @@ public sealed class SolicitacaoService(
 
     public async Task<PagedResult<SolicitacaoResumoDto>> PesquisarDaEmpresaAsync(Guid empresaId, SolicitacaoFiltro filtro, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         return await solicitacoes.PesquisarAsync(filtro, empresaId, Hoje, ct);
     }
 
     public async Task<SolicitacaoDto> ObterAsync(Guid empresaId, Guid solicitacaoId, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         return ToDto(await CarregarAsync(empresaId, solicitacaoId, ct));
     }
 
     public async Task<SolicitacaoDto> AbrirAsync(Guid empresaId, AbrirSolicitacaoCommand command, CancellationToken ct = default)
     {
         await abrirValidator.ValidateAndThrowAsync(command, ct);
-        var empresa = await acesso.GarantirAcessoAsync(empresaId, ct);
+        var (empresa, _) = await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         var tipo = CatalogoSolicitacoes.Obter(command.Tipo);
         var formulario = FormulariosSolicitacao.Processar(command.Tipo, command.Dados);
         var usuarioId = currentUser.RequireUserId();
@@ -91,7 +91,7 @@ public sealed class SolicitacaoService(
             await solicitacoes.AddAsync(solicitacao, ct);
             var alvo = currentUser.EhCliente
                 ? await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct)
-                : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ct);
+                : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ModuloPortal.Solicitacoes, ct);
             await NotificarAsync(solicitacao, alvo, TipoNotificacao.NovaSolicitacao,
                 $"Nova solicitação #{solicitacao.Numero}: {solicitacao.Assunto}",
                 $"{tipo.Nome} aberta para a empresa {empresa.NomeFantasia ?? empresa.RazaoSocial}.", ct);
@@ -105,7 +105,7 @@ public sealed class SolicitacaoService(
     public async Task<SolicitacaoDto> ComentarAsync(Guid empresaId, Guid solicitacaoId, ComentarSolicitacaoCommand command, CancellationToken ct = default)
     {
         await comentarValidator.ValidateAndThrowAsync(command, ct);
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         var solicitacao = await CarregarAsync(empresaId, solicitacaoId, ct);
 
         var interacao = solicitacao.Comentar(currentUser.RequireUserId(), currentUser.EhCliente, command.Mensagem,
@@ -120,7 +120,7 @@ public sealed class SolicitacaoService(
 
     public async Task<SolicitacaoDto> AlterarStatusAsync(Guid empresaId, Guid solicitacaoId, AlterarStatusRequest request, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         var solicitacao = await CarregarAsync(empresaId, solicitacaoId, ct);
         var anterior = solicitacao.Status;
 
@@ -139,7 +139,7 @@ public sealed class SolicitacaoService(
     public async Task<SolicitacaoDto> AtribuirAsync(Guid empresaId, Guid solicitacaoId, AtribuirSolicitacaoRequest request, CancellationToken ct = default)
     {
         if (currentUser.EhCliente) throw new ForbiddenException();
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         var solicitacao = await CarregarAsync(empresaId, solicitacaoId, ct);
 
         string? nome = null;
@@ -168,7 +168,7 @@ public sealed class SolicitacaoService(
 
     public async Task<ArquivoParaDownload> BaixarAnexoAsync(Guid empresaId, Guid solicitacaoId, Guid anexoId, CancellationToken ct = default)
     {
-        await acesso.GarantirAcessoAsync(empresaId, ct);
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
         var anexo = await solicitacoes.ObterAnexoAsync(empresaId, solicitacaoId, anexoId, ct)
                     ?? throw new NotFoundException("Anexo", anexoId);
         var stream = await storage.OpenReadAsync(anexo.StorageKey, ct);
@@ -196,7 +196,7 @@ public sealed class SolicitacaoService(
             d => d.EhDoEscritorio ? $"/atendimento/{s.EmpresaId}/{s.Id}" : $"/portal/solicitacoes/{s.Id}",
             "Ver solicitação"), ct);
 
-    private static string NomeStatus(StatusSolicitacao status) => status switch
+    internal static string NomeStatus(StatusSolicitacao status) => status switch
     {
         StatusSolicitacao.Aberta => "Aberta",
         StatusSolicitacao.EmAnalise => "Em análise",

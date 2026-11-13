@@ -11,5 +11,7 @@ public interface IUsuarioRepository : IRepository<Usuario>
     Task<Usuario?> GetByIdIgnorandoTenantAsync(Guid id, CancellationToken ct = default);
     Task<bool> EmailExisteIgnorandoTenantAsync(string email, Guid? exceto, CancellationToken ct = default);
     Task<Usuario?> GetComEmpresasAsync(Guid id, CancellationToken ct = default);
+    /// <summary>Usuários do cliente vinculados à empresa, com todos os vínculos carregados.</summary>
+    Task<IReadOnlyList<Usuario>> ListarClientesDaEmpresaAsync(Guid empresaId, CancellationToken ct = default);
     Task<PagedResult<Usuario>> PesquisarAsync(UsuarioFiltro filtro, CancellationToken ct = default);
 }

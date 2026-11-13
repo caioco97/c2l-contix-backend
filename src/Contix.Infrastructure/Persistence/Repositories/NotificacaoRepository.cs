@@ -35,8 +35,23 @@ public sealed class NotificacaoRepository(ContixDbContext context) : Repository<
         .Select(u => new Destinatario(u.Id, u.Nome, u.Email, u.Perfil != PerfilUsuario.Cliente))
         .ToList();
 
-    public Task<IReadOnlyList<Destinatario>> ListarClientesDaEmpresaAsync(Guid tenantId, Guid empresaId, CancellationToken ct = default) =>
-        Projetar(UsuariosAtivos(tenantId).Where(u => u.Perfil == PerfilUsuario.Cliente && u.Empresas.Any(e => e.EmpresaId == empresaId)), ct);
+    public Task<IReadOnlyList<Destinatario>> ListarClientesDaEmpresaAsync(Guid tenantId, Guid empresaId, ModuloPortal? modulo = null, CancellationToken ct = default) =>
+        Projetar(UsuariosAtivos(tenantId).Where(u => u.Perfil == PerfilUsuario.Cliente
+            && u.Empresas.Any(e => e.EmpresaId == empresaId && (modulo == null || e.Modulos.Contains(modulo.Value)))), ct);
+
+    public async Task<IReadOnlyList<Destinatario>> ListarClientesComAcessoAPastaAsync(Guid tenantId, Guid empresaId, Guid pastaId, CancellationToken ct = default)
+    {
+        var pais = await Context.Pastas.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.TenantId == tenantId && p.EmpresaId == empresaId)
+            .Select(p => new { p.Id, p.PastaPaiId })
+            .ToDictionaryAsync(p => p.Id, p => p.PastaPaiId, ct);
+        var raiz = pastaId;
+        for (var i = 0; i < 32 && pais.TryGetValue(raiz, out var pai) && pai is { } idPai; i++) raiz = idPai;
+
+        return await Projetar(UsuariosAtivos(tenantId).Where(u => u.Perfil == PerfilUsuario.Cliente
+            && u.Empresas.Any(e => e.EmpresaId == empresaId && e.Modulos.Contains(ModuloPortal.Documentos)
+                                   && (e.TodasAsPastas || e.PastaIds.Contains(raiz)))), ct);
+    }
 
     public Task<IReadOnlyList<Destinatario>> ListarEquipeDoEscritorioAsync(Guid tenantId, CancellationToken ct = default) =>
         Projetar(UsuariosAtivos(tenantId).Where(u => u.Perfil != PerfilUsuario.Cliente), ct);

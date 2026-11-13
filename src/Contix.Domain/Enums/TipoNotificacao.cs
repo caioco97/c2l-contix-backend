@@ -6,5 +6,7 @@ public enum TipoNotificacao
     NovoDocumento = 1,
     VencimentoProximo = 2,
     NovaSolicitacao = 3,
-    SolicitacaoAtualizada = 4
+    SolicitacaoAtualizada = 4,
+    NovaNoticia = 5,
+    CertidaoVencimento = 6
 }

@@ -92,9 +92,15 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 | POST | `/auth/registrar` | público | Onboarding: cria escritório + administrador |
 | GET | `/auth/me` | autenticado | Usuário atual e escritório (nome, logo) |
 | GET / PUT | `/escritorio` | todos / admin | Dados do escritório |
-| GET / POST | `/usuarios` | escritório | Lista / cria usuários (colaborador só cria usuários do cliente) |
+| GET / POST | `/usuarios` | escritório | Lista / cria usuários (colaborador só cria usuários do cliente). Sem `senha`, envia convite por e-mail |
 | GET / PUT | `/usuarios/{id}` | escritório | Detalhe / atualiza perfil, situação e empresas vinculadas |
-| GET | `/empresas` | autenticado | Busca paginada (cliente vê só as vinculadas) |
+| POST | `/usuarios/{id}/convite` | escritório | Reenvia o convite de primeiro acesso |
+| PUT | `/usuarios/{id}/situacao` | escritório | Ativa / inativa o acesso (`{ ativo }`); inativar encerra as sessões |
+| GET | `/empresas` | autenticado | Busca paginada (cliente vê só as vinculadas, com os `modulos` liberados em cada uma) |
+| GET / POST | `/empresas/{id}/usuarios` | escritório | Usuários do portal da empresa com permissões / convida por e-mail (`{ nome, email, modulos, todasAsPastas, pastaIds }`); e-mail de um usuário do cliente já existente só ganha o vínculo |
+| PUT / DELETE | `/empresas/{id}/usuarios/{usuarioId}` | escritório | Altera módulos e pastas do usuário nesta empresa / remove o vínculo |
+| GET | `/empresas/{id}/painel` | escritório | Indicadores: usuários, convites pendentes, documentos não vistos, solicitações e CND |
+| GET | `/empresas/{id}/historico` | escritório | Linha do tempo (documentos, solicitações, certidões, acessos). `categoria`, `limite`, `antesDe` (cursor `proximoAntesDe`) |
 | POST | `/empresas` | escritório | Cadastra empresa e cria as pastas padrão |
 | GET / PUT / DELETE | `/empresas/{id}` | — / escritório / admin | Detalhe / atualiza / exclusão lógica |
 | GET / POST | `/empresas/{id}/pastas` | autenticado / escritório | Árvore de pastas com não lidos / cria subpasta |
@@ -177,15 +183,22 @@ Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migr
 - O link `{Notificacoes:UrlFrontend}/redefinir-senha?token=...` leva um token aleatório de 256 bits, armazenado apenas como hash SHA-256, de **uso único** e com validade de `Notificacoes:ValidadeLinkRedefinicaoMinutos` (60 min). Um novo pedido invalida os links anteriores.
 - `POST /api/v1/auth/redefinir-senha` troca a senha, libera um eventual bloqueio por tentativas e **revoga todas as sessões** (refresh tokens) do usuário. Token inválido/expirado/usado retorna 422.
 
+### Usuários do portal e permissões
+
+- **Convite:** o escritório convida pelo e-mail; o usuário recebe `{UrlFrontend}/redefinir-senha?token=...&convite=1` (uso único, validade `Notificacoes:ValidadeConviteDias`, 7 dias) e cria a própria senha. Reenviar invalida o link anterior.
+- **Permissões por empresa:** cada vínculo usuário × empresa define os módulos (`Documentos`, `Solicitacoes`, `NFe`) e as pastas raiz liberadas (`todasAsPastas` ou `pastaIds`, incluindo as subpastas). Módulo não liberado responde 403; pasta não liberada responde 404 (documentos, árvore, downloads, calendário). Os avisos de novo documento e de vencimento só vão para quem enxerga a pasta. Vínculos existentes continuam com acesso total.
+
 ### Notificações e e-mails
 
 - **In-app:** `GET /api/v1/notificacoes`, `GET /notificacoes/contador` (sino), `POST /notificacoes/{id}/lida`, `POST /notificacoes/lidas`.
 - **Eventos:** novo documento (escritório publica → usuários do cliente; cliente envia → equipe do escritório), envio explícito de documentos ao cliente (`POST /empresas/{id}/documentos/enviar`), vencimento próximo, nova solicitação e atualização de solicitação (status, mensagens e atribuição). Quem executou a ação não é notificado.
 - **Lembrete de vencimento:** job a cada `Notificacoes:LembreteVencimento:IntervaloMinutos` avisa os usuários do cliente sobre documentos que vencem em até `DiasLembreteVencimento` dias (configurável por escritório em `PUT /escritorio`, 0 desativa). Cada documento é lembrado uma única vez.
+- **Nova notícia:** ao publicar (ou quando a data de uma agendada chega, pelo mesmo job), o público-alvo recebe notificação e e-mail, uma única vez por notícia. Notícias já publicadas antes desta versão não geram aviso.
+- **CND a vencer:** o job avisa a equipe do escritório e os usuários da empresa quando a certidão atual de cada tipo entra em 30 dias, 15 dias e quando vence (até 30 dias depois), uma vez por marco. Alterar a validade ou cadastrar a renovação reinicia os avisos.
 - **Preferências:** `GET/PUT /api/v1/notificacoes/preferencias` liga/desliga o e-mail por tipo; a notificação in-app é sempre gerada.
 - **Envio assíncrono (outbox):** e-mails são gravados em `emails_pendentes` na mesma transação da ação e enviados em segundo plano (`FOR UPDATE SKIP LOCKED`, seguro com várias instâncias), com até 5 tentativas e backoff exponencial. Templates HTML + texto com nome/logo do escritório.
 - **Provider:** `Email:Provider = Smtp` (MailKit; `Email:Smtp:*`) ou `Log` (apenas registra no log; padrão sem SMTP e nos testes). Em desenvolvimento o docker compose sobe o **Mailpit** (SMTP na porta 1025).
 
 ## Próximos passos (backlog)
 
-Convites por e-mail, departamentos e responsáveis, auditoria de documentos, editor rico nas notícias, emissão automática de CND, NF-e e tarefas. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
+Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), tarefas na página da empresa, editor rico nas notícias, emissão automática de CND, NF-e e tarefas. Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.

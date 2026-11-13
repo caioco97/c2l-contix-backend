@@ -18,9 +18,10 @@ public sealed record EmpresaDto(
         EnderecoDto.From(e.Endereco), e.CreatedAt, e.UpdatedAt);
 }
 
+/// <param name="Modulos">Para o usuário do cliente: módulos do portal liberados nesta empresa. Nulo para o escritório.</param>
 public sealed record EmpresaResumoDto(
     Guid Id, string RazaoSocial, string? NomeFantasia, string? Apelido, string Documento,
-    RegimeTributario RegimeTributario, SituacaoEmpresa Situacao);
+    RegimeTributario RegimeTributario, SituacaoEmpresa Situacao, IReadOnlyList<ModuloPortal>? Modulos = null);
 
 public sealed record EmpresaFiltro : PageQuery
 {

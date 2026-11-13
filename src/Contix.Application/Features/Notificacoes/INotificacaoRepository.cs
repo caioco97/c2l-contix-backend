@@ -19,7 +19,10 @@ public interface INotificacaoRepository : IRepository<Notificacao>
     Task<int> MarcarTodasComoLidasAsync(Guid usuarioId, DateTime agora, CancellationToken ct = default);
 
     /* Destinatários. Recebem o tenant explicitamente para funcionar também fora de uma requisição (jobs). */
-    Task<IReadOnlyList<Destinatario>> ListarClientesDaEmpresaAsync(Guid tenantId, Guid empresaId, CancellationToken ct = default);
+    /// <param name="modulo">Quando informado, só os usuários com o módulo liberado na empresa.</param>
+    Task<IReadOnlyList<Destinatario>> ListarClientesDaEmpresaAsync(Guid tenantId, Guid empresaId, ModuloPortal? modulo = null, CancellationToken ct = default);
+    /// <summary>Usuários do cliente com acesso ao módulo de documentos e à pasta informada.</summary>
+    Task<IReadOnlyList<Destinatario>> ListarClientesComAcessoAPastaAsync(Guid tenantId, Guid empresaId, Guid pastaId, CancellationToken ct = default);
     Task<IReadOnlyList<Destinatario>> ListarEquipeDoEscritorioAsync(Guid tenantId, CancellationToken ct = default);
     Task<IReadOnlyList<Destinatario>> ListarPorIdsAsync(Guid tenantId, IReadOnlyCollection<Guid> usuarioIds, CancellationToken ct = default);
 

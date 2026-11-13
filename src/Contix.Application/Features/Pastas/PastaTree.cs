@@ -31,4 +31,14 @@ public static class PastaTree
         }
         return string.Join('/', partes);
     }
+
+    /// <summary>Pasta raiz (sem pai) à qual a pasta pertence.</summary>
+    public static Guid Raiz(Guid pastaId, IReadOnlyDictionary<Guid, Pasta> pastas)
+    {
+        var atual = pastaId;
+        var guard = 0;
+        while (pastas.TryGetValue(atual, out var p) && p.PastaPaiId is { } pai && guard++ < 32)
+            atual = pai;
+        return atual;
+    }
 }
