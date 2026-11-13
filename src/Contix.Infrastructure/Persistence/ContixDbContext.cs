@@ -21,6 +21,9 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Solicitacao> Solicitacoes => Set<Solicitacao>();
     public DbSet<SolicitacaoInteracao> SolicitacaoInteracoes => Set<SolicitacaoInteracao>();
     public DbSet<SolicitacaoAnexo> SolicitacaoAnexos => Set<SolicitacaoAnexo>();
+    public DbSet<Tarefa> Tarefas => Set<Tarefa>();
+    public DbSet<TarefaInteracao> TarefaInteracoes => Set<TarefaInteracao>();
+    public DbSet<TarefaAnexo> TarefaAnexos => Set<TarefaAnexo>();
     public DbSet<TokenRedefinicaoSenha> TokensRedefinicaoSenha => Set<TokenRedefinicaoSenha>();
     public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
     public DbSet<PreferenciaNotificacao> PreferenciasNotificacao => Set<PreferenciaNotificacao>();

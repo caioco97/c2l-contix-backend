@@ -18,4 +18,6 @@ public class Escritorio : BaseEntity
     public int DiasLembreteVencimento { get; set; } = 3;
     /// <summary>Último número de solicitação emitido (sequência por escritório).</summary>
     public int UltimoNumeroSolicitacao { get; set; }
+    /// <summary>Último número de tarefa emitido (sequência por escritório).</summary>
+    public int UltimoNumeroTarefa { get; set; }
 }

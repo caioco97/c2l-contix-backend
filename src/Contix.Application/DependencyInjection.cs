@@ -7,6 +7,7 @@ using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Noticias;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Solicitacoes;
+using Contix.Application.Features.Tarefas;
 using Contix.Application.Features.Usuarios;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IPastaService, PastaService>();
         services.AddScoped<IDocumentoService, DocumentoService>();
         services.AddScoped<ISolicitacaoService, SolicitacaoService>();
+        services.AddScoped<ITarefaService, TarefaService>();
         services.AddScoped<INotificador, Notificador>();
         services.AddScoped<INotificacaoService, NotificacaoService>();
         services.AddScoped<ILembreteVencimentoService, LembreteVencimentoService>();

@@ -13,7 +13,10 @@ public sealed record PainelEmpresaDto(
     int SolicitacoesEmAberto,
     int SolicitacoesAtrasadas,
     int CertidoesVencidas,
-    int CertidoesAVencer);
+    int CertidoesAVencer,
+    // Tarefas internas do escritório não finalizadas, e as que passaram do prazo interno.
+    int TarefasEmAberto,
+    int TarefasAtrasadas);
 
 public enum CategoriaHistorico { Documento = 1, Solicitacao = 2, Certidao = 3, Usuario = 4 }
 

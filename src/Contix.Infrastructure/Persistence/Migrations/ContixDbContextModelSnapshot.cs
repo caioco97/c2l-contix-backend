@@ -550,6 +550,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("ultimo_numero_solicitacao");
 
+                    b.Property<int>("UltimoNumeroTarefa")
+                        .HasColumnType("integer")
+                        .HasColumnName("ultimo_numero_tarefa");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -1213,6 +1217,230 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("solicitacao_interacoes", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.Tarefa", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("ConcluidaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("concluida_em");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CriadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("criado_por_id");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Departamento")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("departamento");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)")
+                        .HasColumnName("descricao");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("Numero")
+                        .HasColumnType("integer")
+                        .HasColumnName("numero");
+
+                    b.Property<DateOnly>("PrazoInterno")
+                        .HasColumnType("date")
+                        .HasColumnName("prazo_interno");
+
+                    b.Property<DateOnly?>("PrazoLegal")
+                        .HasColumnType("date")
+                        .HasColumnName("prazo_legal");
+
+                    b.Property<Guid>("ResponsavelId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsavel_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("titulo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tarefas");
+
+                    b.HasIndex("CriadoPorId")
+                        .HasDatabaseName("ix_tarefas_criado_por_id");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_tarefas_empresa_id");
+
+                    b.HasIndex("ResponsavelId")
+                        .HasDatabaseName("ix_tarefas_responsavel_id");
+
+                    b.HasIndex("TenantId", "Numero")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tarefas_tenant_id_numero");
+
+                    b.HasIndex("TenantId", "PrazoInterno")
+                        .HasDatabaseName("ix_tarefas_tenant_id_prazo_interno");
+
+                    b.HasIndex("TenantId", "EmpresaId", "Status")
+                        .HasDatabaseName("ix_tarefas_tenant_id_empresa_id_status");
+
+                    b.HasIndex("TenantId", "ResponsavelId", "Status")
+                        .HasDatabaseName("ix_tarefas_tenant_id_responsavel_id_status");
+
+                    b.ToTable("tarefas", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.TarefaAnexo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("EnviadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("enviado_por_id");
+
+                    b.Property<Guid?>("InteracaoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("interacao_id");
+
+                    b.Property<string>("NomeArquivo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nome_arquivo");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<long>("TamanhoBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("tamanho_bytes");
+
+                    b.Property<Guid>("TarefaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tarefa_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tarefa_anexos");
+
+                    b.HasIndex("EnviadoPorId")
+                        .HasDatabaseName("ix_tarefa_anexos_enviado_por_id");
+
+                    b.HasIndex("InteracaoId")
+                        .HasDatabaseName("ix_tarefa_anexos_interacao_id");
+
+                    b.HasIndex("TarefaId")
+                        .HasDatabaseName("ix_tarefa_anexos_tarefa_id");
+
+                    b.ToTable("tarefa_anexos", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.TarefaInteracao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AutorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("autor_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Mensagem")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)")
+                        .HasColumnName("mensagem");
+
+                    b.Property<string>("StatusAnterior")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status_anterior");
+
+                    b.Property<string>("StatusNovo")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status_novo");
+
+                    b.Property<Guid>("TarefaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tarefa_id");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tarefa_interacoes");
+
+                    b.HasIndex("AutorId")
+                        .HasDatabaseName("ix_tarefa_interacoes_autor_id");
+
+                    b.HasIndex("TarefaId", "CreatedAt")
+                        .HasDatabaseName("ix_tarefa_interacoes_tarefa_id_created_at");
+
+                    b.ToTable("tarefa_interacoes", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.TokenRedefinicaoSenha", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1818,6 +2046,87 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Autor");
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.Tarefa", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "CriadoPor")
+                        .WithMany()
+                        .HasForeignKey("CriadoPorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefas_usuarios_criado_por_id");
+
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefas_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Responsavel")
+                        .WithMany()
+                        .HasForeignKey("ResponsavelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefas_usuarios_responsavel_id");
+
+                    b.HasOne("Contix.Domain.Entities.Escritorio", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefas_escritorios_tenant_id");
+
+                    b.Navigation("CriadoPor");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("Responsavel");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.TarefaAnexo", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "EnviadoPor")
+                        .WithMany()
+                        .HasForeignKey("EnviadoPorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefa_anexos_usuarios_enviado_por_id");
+
+                    b.HasOne("Contix.Domain.Entities.TarefaInteracao", null)
+                        .WithMany()
+                        .HasForeignKey("InteracaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_tarefa_anexos_tarefa_interacoes_interacao_id");
+
+                    b.HasOne("Contix.Domain.Entities.Tarefa", null)
+                        .WithMany("Anexos")
+                        .HasForeignKey("TarefaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefa_anexos_tarefas_tarefa_id");
+
+                    b.Navigation("EnviadoPor");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.TarefaInteracao", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Autor")
+                        .WithMany()
+                        .HasForeignKey("AutorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefa_interacoes_usuarios_autor_id");
+
+                    b.HasOne("Contix.Domain.Entities.Tarefa", null)
+                        .WithMany("Interacoes")
+                        .HasForeignKey("TarefaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tarefa_interacoes_tarefas_tarefa_id");
+
+                    b.Navigation("Autor");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.TokenRedefinicaoSenha", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Usuario", "Usuario")
@@ -1903,6 +2212,13 @@ namespace Contix.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Contix.Domain.Entities.SolicitacaoInteracao", b =>
                 {
                     b.Navigation("Anexos");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.Tarefa", b =>
+                {
+                    b.Navigation("Anexos");
+
+                    b.Navigation("Interacoes");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Usuario", b =>
