@@ -4,6 +4,7 @@ using Contix.Application.Features.NotasFiscais;
 using Contix.Infrastructure.NotasFiscais;
 using Contix.Infrastructure.Certidoes;
 using Contix.Infrastructure.Email;
+using Contix.Infrastructure.Push;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -43,6 +44,14 @@ public abstract class JobPeriodico(ILogger logger) : BackgroundService
 }
 
 public sealed class EmailOutboxJob(EmailOutboxProcessor processor, IOptions<EmailOptions> options, ILogger<EmailOutboxJob> logger)
+    : JobPeriodico(logger)
+{
+    protected override bool Habilitado => options.Value.ProcessarFila;
+    protected override TimeSpan Intervalo => TimeSpan.FromSeconds(Math.Max(1, options.Value.IntervaloFilaSegundos));
+    protected override Task ExecutarUmaVezAsync(CancellationToken ct) => processor.ProcessarAsync(ct);
+}
+
+public sealed class PushOutboxJob(PushOutboxProcessor processor, IOptions<PushOptions> options, ILogger<PushOutboxJob> logger)
     : JobPeriodico(logger)
 {
     protected override bool Habilitado => options.Value.ProcessarFila;

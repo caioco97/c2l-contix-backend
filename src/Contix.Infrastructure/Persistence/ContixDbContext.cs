@@ -29,6 +29,8 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
     public DbSet<PreferenciaNotificacao> PreferenciasNotificacao => Set<PreferenciaNotificacao>();
     public DbSet<EmailPendente> EmailsPendentes => Set<EmailPendente>();
+    public DbSet<PushPendente> PushesPendentes => Set<PushPendente>();
+    public DbSet<DispositivoPush> DispositivosPush => Set<DispositivoPush>();
     public DbSet<Noticia> Noticias => Set<Noticia>();
     public DbSet<NoticiaEmpresa> NoticiaEmpresas => Set<NoticiaEmpresa>();
     public DbSet<NoticiaLeitura> NoticiaLeituras => Set<NoticiaLeitura>();

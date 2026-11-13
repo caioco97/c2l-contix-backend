@@ -58,6 +58,8 @@ services:
       Email__Smtp__Seguranca: ${SMTP_SEGURANCA:-None}
       Email__Smtp__Usuario: ${SMTP_USUARIO:-}
       Email__Smtp__Senha: ${SMTP_SENHA:-}
+      Push__Provider: ${PUSH_PROVIDER:-Log}
+      Push__AccessToken: ${EXPO_ACCESS_TOKEN:-}
     ports:
       - "${API_PORT:-5080}:8080"
     volumes:

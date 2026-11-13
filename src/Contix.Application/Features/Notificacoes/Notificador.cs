@@ -21,7 +21,7 @@ public sealed record EventoNotificacao(
     string? MensagemAdicional = null);
 
 /// <summary>
-/// Gera notificações in-app e enfileira os e-mails correspondentes (respeitando as preferências).
+/// Gera notificações in-app e enfileira o push (app mobile) e os e-mails correspondentes (respeitando as preferências).
 /// Não salva: as notificações são persistidas no próximo SaveChanges, junto com a ação que as originou.
 /// </summary>
 public interface INotificador
@@ -32,6 +32,7 @@ public interface INotificador
 public sealed class Notificador(
     INotificacaoRepository repositorio,
     IEmailQueue emails,
+    IPushQueue push,
     ICurrentUser currentUser,
     IOptions<NotificacaoOptions> options,
     ILogger<Notificador> logger) : INotificador
@@ -53,7 +54,7 @@ public sealed class Notificador(
         foreach (var d in lista)
         {
             var link = evento.Link(d);
-            await repositorio.AddAsync(new Notificacao
+            var notificacao = new Notificacao
             {
                 TenantId = tenantId,
                 UsuarioId = d.Id,
@@ -63,7 +64,18 @@ public sealed class Notificador(
                 Link = link,
                 EmpresaId = evento.EmpresaId,
                 ReferenciaId = evento.ReferenciaId
-            }, ct);
+            };
+            await repositorio.AddAsync(notificacao, ct);
+
+            // Push nos aparelhos do usuário (app mobile), com os dados para abrir o item.
+            await push.EnfileirarAsync(new PushMensagem(d.Id, evento.Titulo, evento.Mensagem, new Dictionary<string, string?>
+            {
+                ["notificacaoId"] = notificacao.Id.ToString(),
+                ["tipo"] = evento.Tipo.ToString(),
+                ["link"] = link,
+                ["empresaId"] = evento.EmpresaId?.ToString(),
+                ["referenciaId"] = evento.ReferenciaId?.ToString()
+            }), ct);
 
             if (!evento.IgnorarPreferenciaEmail && semEmail.Contains(d.Id)) continue;
             string[] paragrafos = string.IsNullOrWhiteSpace(evento.MensagemAdicional)

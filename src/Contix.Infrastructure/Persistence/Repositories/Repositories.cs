@@ -1,5 +1,6 @@
 using Contix.Application.Common.Models;
 using Contix.Application.Features.Auth;
+using Contix.Application.Features.Dispositivos;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
@@ -28,6 +29,15 @@ public sealed class RefreshTokenRepository(ContixDbContext context) : Repository
 
     public async Task<IReadOnlyList<RefreshToken>> ListarAtivosDoUsuarioAsync(Guid usuarioId, DateTime agora, CancellationToken ct = default) =>
         await Set.Where(t => t.UsuarioId == usuarioId && t.RevogadoEm == null && t.ExpiraEm > agora).ToListAsync(ct);
+}
+
+public sealed class DispositivoPushRepository(ContixDbContext context) : Repository<DispositivoPush>(context), IDispositivoPushRepository
+{
+    public Task<DispositivoPush?> ObterPorTokenAsync(string token, CancellationToken ct = default) =>
+        Set.FirstOrDefaultAsync(d => d.Token == token, ct);
+
+    public async Task<IReadOnlyList<DispositivoPush>> ListarDoUsuarioAsync(Guid usuarioId, CancellationToken ct = default) =>
+        await Set.Where(d => d.UsuarioId == usuarioId).ToListAsync(ct);
 }
 
 public sealed class UsuarioRepository(ContixDbContext context) : Repository<Usuario>(context), IUsuarioRepository

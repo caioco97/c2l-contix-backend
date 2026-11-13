@@ -91,6 +91,8 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 | POST | `/auth/logout` | público | Revoga o refresh token |
 | POST | `/auth/registrar` | público | Onboarding: cria escritório + administrador |
 | GET | `/auth/me` | autenticado | Usuário atual e escritório (nome, logo) |
+| POST | `/dispositivos` | autenticado | Registra o aparelho do app mobile para push (`{ token, plataforma, nome }`; `token` = `ExponentPushToken[...]`, `plataforma` = `Android` ou `Ios`) |
+| DELETE | `/dispositivos?token=` | autenticado | Remove o aparelho (logout no app) |
 | GET / PUT | `/escritorio` | todos / admin | Dados do escritório |
 | GET / POST | `/usuarios` | escritório | Lista / cria usuários (colaborador só cria usuários do cliente). Sem `senha`, envia convite por e-mail |
 | GET / PUT | `/usuarios/{id}` | escritório | Detalhe / atualiza perfil, situação e empresas vinculadas |
@@ -235,6 +237,7 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 | `Criptografia__Chave` | Chave AES-256 (Base64 de 32 bytes, `openssl rand -base64 32`) dos certificados A1 guardados. **Secret**; trocá-la invalida os certificados já enviados |
 | `NFe__Sefaz__Provider` / `NFe__Sefaz__Ambiente` | `Desabilitado`, `Simulado` ou `Sefaz`; `Homologacao` ou `Producao` |
 | `NFe__Sefaz__CadeiaIcpBrasil` | Pasta com os certificados (.crt/.cer/.pem) das ACs da ICP-Brasil. Os servidores da SEFAZ usam certificados ICP-Brasil, que não estão no repositório de confiança padrão do Linux |
+| `Push__Provider` / `Push__AccessToken` | `Expo` ou `Log` (padrão) / access token do Expo, se o projeto exigir (**secret**) |
 | `ConsultaCnpj__Provedores__N` | Provedores da consulta de CNPJ, em ordem (`BrasilApi`, `ReceitaWs`, `Simulado`) |
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
@@ -262,6 +265,14 @@ Atrás de proxy/ingress, informe as redes confiáveis em `ForwardedHeaders__Rede
 - **Preferências:** `GET/PUT /api/v1/notificacoes/preferencias` liga/desliga o e-mail por tipo; a notificação in-app é sempre gerada.
 - **Envio assíncrono (outbox):** e-mails são gravados em `emails_pendentes` na mesma transação da ação e enviados em segundo plano (`FOR UPDATE SKIP LOCKED`, seguro com várias instâncias), com até 5 tentativas e backoff exponencial. Templates HTML + texto com nome/logo do escritório.
 - **Provider:** `Email:Provider = Smtp` (MailKit; `Email:Smtp:*`) ou `Log` (apenas registra no log; padrão sem SMTP e nos testes). Em desenvolvimento o docker compose sobe o **Mailpit** (SMTP na porta 1025).
+
+### Push (app mobile)
+
+- O app ([c2l-contix-mobile](https://github.com/caioco97/c2l-contix-mobile)) registra o aparelho em `POST /api/v1/dispositivos` após o login e o remove no logout. O token é único: se outra conta entrar no mesmo aparelho, o push passa a ser dela.
+- **Toda notificação in-app também vira push** para os aparelhos do usuário, com `notificacaoId`, `tipo`, `link`, `empresaId` e `referenciaId` nos dados para o app abrir o item. As preferências de e-mail não afetam o push.
+- **Envio assíncrono (outbox):** gravado em `pushes_pendentes` na mesma transação da notificação e enviado em segundo plano pelo [Expo Push Service](https://docs.expo.dev/push-notifications/sending-notifications/) (APNs no iOS, FCM no Android), em lotes de até 100, com até 5 tentativas e backoff exponencial. Só usuários ativos recebem; aparelhos que o Expo informa como `DeviceNotRegistered` são removidos.
+- Redefinir a senha remove os aparelhos do usuário (junto com as sessões).
+- **Provider:** `Push:Provider = Expo` (padrão em Production) ou `Log` (apenas registra no log; padrão em desenvolvimento e nos testes). `Push:AccessToken` só é necessário se o projeto no Expo usar "Enhanced Push Security" (**secret**).
 
 ## Próximos passos (backlog)
 

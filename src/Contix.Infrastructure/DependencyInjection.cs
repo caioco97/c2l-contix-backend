@@ -3,6 +3,7 @@ using Contix.Application.Features.Tarefas;
 using Contix.Application.Common.Abstractions;
 using Contix.Application.Features.Auth;
 using Contix.Application.Features.Certidoes;
+using Contix.Application.Features.Dispositivos;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empregados;
 using Contix.Application.Features.Empresas;
@@ -20,6 +21,7 @@ using Contix.Infrastructure.NotasFiscais;
 using Contix.Infrastructure.Common;
 using Contix.Infrastructure.Email;
 using Contix.Infrastructure.Jobs;
+using Contix.Infrastructure.Push;
 using Contix.Infrastructure.Persistence;
 using Contix.Infrastructure.Persistence.Interceptors;
 using Contix.Infrastructure.Persistence.Repositories;
@@ -45,6 +47,9 @@ public static class DependencyInjection
         services.AddOptions<LembreteVencimentoOptions>().Bind(configuration.GetSection(LembreteVencimentoOptions.Secao));
         services.AddOptions<EmailOptions>().Bind(configuration.GetSection(EmailOptions.Secao))
             .Validate(o => o.Provider is "Smtp" or "Log", "Email:Provider deve ser \"Smtp\" ou \"Log\".")
+            .ValidateOnStart();
+        services.AddOptions<PushOptions>().Bind(configuration.GetSection(PushOptions.Secao))
+            .Validate(o => o.Provider is "Expo" or "Log", "Push:Provider deve ser \"Expo\" ou \"Log\".")
             .ValidateOnStart();
 
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
@@ -139,6 +144,16 @@ public static class DependencyInjection
             services.AddSingleton<IEmailSender, LogEmailSender>();
         services.AddSingleton<EmailOutboxProcessor>();
         services.AddHostedService<EmailOutboxJob>();
+
+        // Push (app mobile): caixa de saída gravada junto com a notificação e enviada em segundo plano pelo Expo.
+        services.AddScoped<IDispositivoPushRepository, DispositivoPushRepository>();
+        services.AddScoped<IPushQueue, PushQueue>();
+        if (configuration.GetValue<string>($"{PushOptions.Secao}:Provider") == "Expo")
+            services.AddHttpClient<IPushSender, ExpoPushSender>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        else
+            services.AddSingleton<IPushSender, LogPushSender>();
+        services.AddSingleton<PushOutboxProcessor>();
+        services.AddHostedService<PushOutboxJob>();
         services.AddHostedService<LembreteVencimentoJob>();
 
         services.AddScoped<DbInitializer>();
