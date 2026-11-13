@@ -10,18 +10,19 @@ public sealed record EmpresaDto(
     Guid Id, string RazaoSocial, string? NomeFantasia, string? Apelido, string Documento,
     string? InscricaoEstadual, string? InscricaoMunicipal, RegimeTributario RegimeTributario,
     SituacaoEmpresa Situacao, string? Email, string? Telefone, EnderecoDto? Endereco,
-    DateTime CreatedAt, DateTime? UpdatedAt)
+    DateTime CreatedAt, DateTime? UpdatedAt, IdentidadeVisualDto? IdentidadeVisual = null)
 {
     public static EmpresaDto From(Empresa e) => new(
         e.Id, e.RazaoSocial, e.NomeFantasia, e.Apelido, e.Documento, e.InscricaoEstadual,
         e.InscricaoMunicipal, e.RegimeTributario, e.Situacao, e.Email, e.Telefone,
-        EnderecoDto.From(e.Endereco), e.CreatedAt, e.UpdatedAt);
+        EnderecoDto.From(e.Endereco), e.CreatedAt, e.UpdatedAt, IdentidadeVisualDto.From(e));
 }
 
 /// <param name="Modulos">Para o usuário do cliente: módulos do portal liberados nesta empresa. Nulo para o escritório.</param>
 public sealed record EmpresaResumoDto(
     Guid Id, string RazaoSocial, string? NomeFantasia, string? Apelido, string Documento,
-    RegimeTributario RegimeTributario, SituacaoEmpresa Situacao, IReadOnlyList<ModuloPortal>? Modulos = null);
+    RegimeTributario RegimeTributario, SituacaoEmpresa Situacao, IReadOnlyList<ModuloPortal>? Modulos = null,
+    IdentidadeVisualDto? IdentidadeVisual = null);
 
 public sealed record EmpresaFiltro : PageQuery
 {

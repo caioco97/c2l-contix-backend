@@ -139,11 +139,15 @@ public sealed class EmpresaRepository(ContixDbContext context) : Repository<Empr
         if (somenteDoUsuario is { } cliente)
             return q.Select(e => new EmpresaResumoDto(e.Id, e.RazaoSocial, e.NomeFantasia, e.Apelido, e.Documento,
                     e.RegimeTributario, e.Situacao,
-                    e.Usuarios.Where(v => v.UsuarioId == cliente).Select(v => v.Modulos).FirstOrDefault()))
+                    e.Usuarios.Where(v => v.UsuarioId == cliente).Select(v => v.Modulos).FirstOrDefault(),
+                    new IdentidadeVisualDto(e.CorPrimaria, e.CorSecundaria, e.LogoStorageKey != null,
+                        e.LogoStorageKey != null && e.LogoAtualizadoEm != null ? e.LogoAtualizadoEm.Value.Ticks.ToString() : null)))
                 .ToPagedAsync(filtro, ct);
 
         return q.Select(e => new EmpresaResumoDto(e.Id, e.RazaoSocial, e.NomeFantasia, e.Apelido, e.Documento,
-                e.RegimeTributario, e.Situacao, null))
+                e.RegimeTributario, e.Situacao, null,
+                new IdentidadeVisualDto(e.CorPrimaria, e.CorSecundaria, e.LogoStorageKey != null,
+                    e.LogoStorageKey != null && e.LogoAtualizadoEm != null ? e.LogoAtualizadoEm.Value.Ticks.ToString() : null)))
             .ToPagedAsync(filtro, ct);
     }
 }

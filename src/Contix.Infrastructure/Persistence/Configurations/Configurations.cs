@@ -81,6 +81,10 @@ public sealed class EmpresaConfiguration : IEntityTypeConfiguration<Empresa>
         b.Property(x => x.Email).HasMaxLength(200);
         b.Property(x => x.Telefone).HasMaxLength(30);
         b.OwnsOne(x => x.Endereco, EnderecoMapping.Map);
+        b.Property(x => x.CorPrimaria).HasMaxLength(7);
+        b.Property(x => x.CorSecundaria).HasMaxLength(7);
+        b.Property(x => x.LogoStorageKey).HasMaxLength(500);
+        b.Property(x => x.LogoContentType).HasMaxLength(100);
         // Único por tenant entre empresas não excluídas.
         b.HasIndex(x => new { x.TenantId, x.Documento }).IsUnique().HasFilter("is_deleted = false");
         b.HasOne<Escritorio>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);

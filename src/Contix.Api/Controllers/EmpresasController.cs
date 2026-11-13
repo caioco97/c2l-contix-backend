@@ -1,5 +1,6 @@
 using Contix.Api.Infrastructure;
 using Contix.Application.Common.Models;
+using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empresas;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace Contix.Api.Controllers;
 
 /// <summary>Empresas clientes. Usuários do cliente veem apenas as empresas vinculadas.</summary>
 [Route("api/v1/empresas")]
-public sealed class EmpresasController(IEmpresaService service, IHistoricoEmpresaService historico) : ApiControllerBase
+public sealed class EmpresasController(
+    IEmpresaService service, IHistoricoEmpresaService historico, IIdentidadeVisualService visual) : ApiControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<EmpresaResumoDto>), StatusCodes.Status200OK)]
@@ -62,4 +64,37 @@ public sealed class EmpresasController(IEmpresaService service, IHistoricoEmpres
     [ProducesResponseType(typeof(HistoricoEmpresaDto), StatusCodes.Status200OK)]
     public Task<HistoricoEmpresaDto> Historico(Guid id, [FromQuery] HistoricoEmpresaFiltro filtro, CancellationToken ct) =>
         historico.ListarHistoricoAsync(id, filtro, ct);
+
+    /// <summary>Cores do portal da empresa. Campos nulos voltam para o padrão do Contix.</summary>
+    [HttpPut("{id:guid}/identidade-visual")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(IdentidadeVisualDto), StatusCodes.Status200OK)]
+    public Task<IdentidadeVisualDto> SalvarCores(Guid id, SalvarCoresRequest request, CancellationToken ct) =>
+        visual.SalvarCoresAsync(id, request, ct);
+
+    /// <summary>Envia (ou troca) o logotipo da empresa: PNG, JPG ou WEBP de até 1 MB.</summary>
+    [HttpPut("{id:guid}/identidade-visual/logo")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(IdentidadeVisualDto), StatusCodes.Status200OK)]
+    public Task<IdentidadeVisualDto> EnviarLogo(Guid id, IFormFile arquivo, CancellationToken ct) =>
+        visual.EnviarLogoAsync(id, new ArquivoUpload(arquivo.FileName, arquivo.ContentType, arquivo.Length, arquivo.OpenReadStream), ct);
+
+    [HttpDelete("{id:guid}/identidade-visual/logo")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(IdentidadeVisualDto), StatusCodes.Status200OK)]
+    public Task<IdentidadeVisualDto> RemoverLogo(Guid id, CancellationToken ct) => visual.RemoverLogoAsync(id, ct);
+
+    /// <summary>Logotipo da empresa (escritório e usuários vinculados a ela).</summary>
+    [HttpGet("{id:guid}/identidade-visual/logo")]
+    [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Logo(Guid id, CancellationToken ct)
+    {
+        var logo = await visual.ObterLogoAsync(id, ct);
+        Response.Headers.CacheControl = "private, max-age=86400";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return File(logo.Conteudo, logo.ContentType);
+    }
 }

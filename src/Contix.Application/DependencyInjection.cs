@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IUsuarioPortalService, UsuarioPortalService>();
         services.AddScoped<IAcessoEmpresaService, AcessoEmpresaService>();
         services.AddScoped<IEmpresaService, EmpresaService>();
+        services.AddScoped<IIdentidadeVisualService, IdentidadeVisualService>();
         services.AddScoped<IEmpregadoService, EmpregadoService>();
         services.AddScoped<IHistoricoEmpresaService, HistoricoEmpresaService>();
         services.AddScoped<IPastaService, PastaService>();
