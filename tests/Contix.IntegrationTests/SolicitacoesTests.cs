@@ -55,6 +55,14 @@ public sealed class SolicitacoesTests(ContixApiFactory factory)
         Assert.Equal(HttpStatusCode.Forbidden, (await cliente.GetAsync("/api/v1/solicitacoes")).StatusCode);
 
         var colaborador = await LoginAsync("colaborador@contix.dev");
+        // O escritório atende, mas não abre solicitações em nome do cliente.
+        var aberturaEscritorio = await colaborador.PostAsync($"/api/v1/empresas/{empresaId}/solicitacoes", new MultipartFormDataContent
+        {
+            { new StringContent("Geral"), "tipo" },
+            { new StringContent("Teste"), "assunto" },
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, aberturaEscritorio.StatusCode);
+
         var fila = await JsonAsync(await colaborador.GetAsync("/api/v1/solicitacoes?emAndamento=true&tipo=Afastamento"));
         Assert.Contains(fila["items"]!.AsArray(), s => s!["id"]!.GetValue<string>() == id);
 
