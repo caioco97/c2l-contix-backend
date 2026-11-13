@@ -16,6 +16,7 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Pasta> Pastas => Set<Pasta>();
     public DbSet<Documento> Documentos => Set<Documento>();
     public DbSet<DocumentoLeitura> DocumentoLeituras => Set<DocumentoLeitura>();
+    public DbSet<DocumentoEvento> DocumentoEventos => Set<DocumentoEvento>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Solicitacao> Solicitacoes => Set<Solicitacao>();
     public DbSet<SolicitacaoInteracao> SolicitacaoInteracoes => Set<SolicitacaoInteracao>();

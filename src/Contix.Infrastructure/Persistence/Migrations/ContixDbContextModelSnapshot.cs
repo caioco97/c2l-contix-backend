@@ -186,6 +186,12 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("nome_arquivo_original");
 
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origem");
+
                     b.Property<Guid>("PastaId")
                         .HasColumnType("uuid")
                         .HasColumnName("pasta_id");
@@ -221,6 +227,9 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.HasIndex("PastaId")
                         .HasDatabaseName("ix_documentos_pasta_id");
 
+                    b.HasIndex("EmpresaId", "Competencia")
+                        .HasDatabaseName("ix_documentos_empresa_id_competencia");
+
                     b.HasIndex("EmpresaId", "DataVencimento")
                         .HasDatabaseName("ix_documentos_empresa_id_data_vencimento");
 
@@ -228,6 +237,56 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_documentos_tenant_id_empresa_id_pasta_id");
 
                     b.ToTable("documentos", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.DocumentoEvento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Detalhe")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("detalhe");
+
+                    b.Property<Guid>("DocumentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("documento_id");
+
+                    b.Property<DateTime>("OcorridoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ocorrido_em");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_documento_eventos");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_documento_eventos_usuario_id");
+
+                    b.HasIndex("DocumentoId", "OcorridoEm")
+                        .HasDatabaseName("ix_documento_eventos_documento_id_ocorrido_em");
+
+                    b.ToTable("documento_eventos", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.DocumentoLeitura", b =>
@@ -1342,6 +1401,27 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Pasta");
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.DocumentoEvento", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Documento", "Documento")
+                        .WithMany("Eventos")
+                        .HasForeignKey("DocumentoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_documento_eventos_documentos_documento_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_documento_eventos_usuarios_usuario_id");
+
+                    b.Navigation("Documento");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.DocumentoLeitura", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Documento", "Documento")
@@ -1742,6 +1822,8 @@ namespace Contix.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Contix.Domain.Entities.Documento", b =>
                 {
+                    b.Navigation("Eventos");
+
                     b.Navigation("Leituras");
                 });
 

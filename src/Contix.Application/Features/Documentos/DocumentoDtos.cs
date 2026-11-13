@@ -1,4 +1,5 @@
 using Contix.Application.Common.Models;
+using Contix.Domain.Enums;
 using FluentValidation;
 
 namespace Contix.Application.Features.Documentos;
@@ -7,7 +8,10 @@ public sealed record DocumentoDto(
     Guid Id, Guid EmpresaId, Guid PastaId, string Nome, string NomeArquivoOriginal,
     string ContentType, long TamanhoBytes, string? Comentario, DateOnly? Competencia,
     DateOnly? DataVencimento, DateTime PublicadoEm, Guid AdicionadoPorId, string AdicionadoPorNome,
-    DateTime? UpdatedAt, bool Lido, DateTime? LidoEm);
+    DateTime? UpdatedAt, bool Lido, DateTime? LidoEm,
+    OrigemDocumento Origem,
+    // Quantos destinatários (cliente, se o escritório publicou; escritório, se o cliente enviou) já abriram ou baixaram.
+    int VisualizacoesDestinatarios);
 
 public enum StatusLeitura { Todos = 0, NaoLidos = 1, Lidos = 2 }
 
@@ -16,7 +20,31 @@ public sealed record DocumentoFiltro : PageQuery
     public Guid? PastaId { get; init; }
     public string? Busca { get; init; }
     public StatusLeitura Status { get; init; } = StatusLeitura.Todos;
+    /// <summary>Mês de competência (qualquer dia do mês; ex.: 2026-10-01).</summary>
+    public DateOnly? Competencia { get; init; }
+    /// <summary>Somente publicados pelo escritório ou somente enviados pelo cliente.</summary>
+    public OrigemDocumento? Origem { get; init; }
 }
+
+/// <summary>Situação de acesso de um usuário a um documento (quem visualizou ou baixou).</summary>
+public sealed record AcessoDocumentoDto(
+    Guid UsuarioId, string Nome, string Email, bool EhDoEscritorio,
+    DateTime? VisualizadoEm, // primeira vez que abriu ou baixou
+    DateTime? UltimoDownloadEm,
+    int Downloads,
+    bool Destinatario); // usuário do lado oposto a quem publicou (quem deveria ler)
+
+public sealed record AcessosDocumentoDto(
+    Guid DocumentoId, OrigemDocumento Origem, int TotalDestinatarios, int DestinatariosQueVisualizaram,
+    IReadOnlyList<AcessoDocumentoDto> Usuarios);
+
+/// <summary>Item do histórico (auditoria) de um documento.</summary>
+public sealed record EventoDocumentoDto(
+    Guid Id, TipoEventoDocumento Tipo, DateTime OcorridoEm, Guid UsuarioId, string UsuarioNome, bool EhDoEscritorio, string? Detalhe);
+
+/// <summary>Resumo bruto das interações por usuário, calculado no banco.</summary>
+public sealed record InteracaoUsuarioDocumento(
+    Guid UsuarioId, string Nome, string Email, PerfilUsuario Perfil, DateTime? LidoEm, DateTime? UltimoDownloadEm, int Downloads);
 
 /// <summary>Documento com vencimento, para o calendário do portal.</summary>
 public sealed record VencimentoDto(

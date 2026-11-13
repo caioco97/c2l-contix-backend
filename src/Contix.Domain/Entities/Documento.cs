@@ -1,4 +1,5 @@
 using Contix.Domain.Common;
+using Contix.Domain.Enums;
 
 namespace Contix.Domain.Entities;
 
@@ -25,8 +26,12 @@ public class Documento : TenantEntity
     /// <summary>Quando o lembrete de vencimento foi gerado (evita lembrar duas vezes).</summary>
     public DateTime? LembreteVencimentoEnviadoEm { get; set; }
 
+    /// <summary>Escritório publicou para o cliente, ou cliente enviou ao escritório.</summary>
+    public OrigemDocumento Origem { get; set; } = OrigemDocumento.Escritorio;
+
     public Guid AdicionadoPorId { get; set; }
     public Usuario? AdicionadoPor { get; set; }
 
     public ICollection<DocumentoLeitura> Leituras { get; set; } = new List<DocumentoLeitura>();
+    public ICollection<DocumentoEvento> Eventos { get; set; } = new List<DocumentoEvento>();
 }

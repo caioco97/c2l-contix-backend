@@ -6,6 +6,7 @@ using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Usuarios;
 using Contix.Domain.Entities;
+using Contix.Domain.Enums;
 using Contix.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
@@ -153,10 +154,18 @@ public sealed class DocumentoRepository(ContixDbContext context) : Repository<Do
             StatusLeitura.NaoLidos => q.Where(d => !d.Leituras.Any(l => l.UsuarioId == usuarioId)),
             _ => q
         };
+        if (filtro.Competencia is { } c)
+        {
+            var mes = new DateOnly(c.Year, c.Month, 1);
+            q = q.Where(d => d.Competencia == mes);
+        }
+        if (filtro.Origem is { } origem) q = q.Where(d => d.Origem == origem);
 
         q = (filtro.OrderBy?.ToLowerInvariant(), filtro.Desc) switch
         {
             ("nome", false) => q.OrderBy(d => d.Nome),
+            ("competencia", false) => q.OrderBy(d => d.Competencia),
+            ("competencia", true) => q.OrderByDescending(d => d.Competencia),
             ("nome", true) => q.OrderByDescending(d => d.Nome),
             ("datavencimento", false) => q.OrderBy(d => d.DataVencimento),
             ("datavencimento", true) => q.OrderByDescending(d => d.DataVencimento),
@@ -191,6 +200,43 @@ public sealed class DocumentoRepository(ContixDbContext context) : Repository<Do
             .Select(g => new { g.Key, Total = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x.Total, ct);
 
+    public async Task<IReadOnlyList<EventoDocumentoDto>> ListarEventosAsync(Guid documentoId, CancellationToken ct = default) =>
+        await Context.DocumentoEventos.AsNoTracking()
+            .Where(e => e.DocumentoId == documentoId)
+            .OrderByDescending(e => e.OcorridoEm).ThenByDescending(e => e.Id)
+            .Select(e => new EventoDocumentoDto(e.Id, e.Tipo, e.OcorridoEm, e.UsuarioId, e.Usuario!.Nome,
+                e.Usuario.Perfil != PerfilUsuario.Cliente, e.Detalhe))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<InteracaoUsuarioDocumento>> ListarInteracoesAsync(Guid documentoId, CancellationToken ct = default)
+    {
+        var leituras = await Context.DocumentoLeituras.AsNoTracking()
+            .Where(l => l.DocumentoId == documentoId)
+            .Select(l => new { l.UsuarioId, l.LidoEm })
+            .ToListAsync(ct);
+        var downloads = await Context.DocumentoEventos.AsNoTracking()
+            .Where(e => e.DocumentoId == documentoId && e.Tipo == TipoEventoDocumento.Download)
+            .GroupBy(e => e.UsuarioId)
+            .Select(g => new { UsuarioId = g.Key, Ultimo = g.Max(e => e.OcorridoEm), Total = g.Count() })
+            .ToListAsync(ct);
+
+        var ids = leituras.Select(l => l.UsuarioId).Union(downloads.Select(d => d.UsuarioId)).ToList();
+        var usuarios = await Context.Usuarios.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new { u.Id, u.Nome, u.Email, u.Perfil })
+            .ToListAsync(ct);
+
+        return usuarios.Select(u =>
+        {
+            var d = downloads.FirstOrDefault(x => x.UsuarioId == u.Id);
+            return new InteracaoUsuarioDocumento(u.Id, u.Nome, u.Email, u.Perfil,
+                leituras.FirstOrDefault(l => l.UsuarioId == u.Id)?.LidoEm, d?.Ultimo, d?.Total ?? 0);
+        }).ToList();
+    }
+
+    public Task RegistrarEventosAsync(IEnumerable<DocumentoEvento> eventos, CancellationToken ct = default) =>
+        Context.DocumentoEventos.AddRangeAsync(eventos, ct);
+
     public async Task MarcarComoLidosAsync(IReadOnlyCollection<Guid> documentoIds, Guid usuarioId, DateTime agora, CancellationToken ct = default)
     {
         var jaLidos = await Context.DocumentoLeituras
@@ -209,5 +255,7 @@ public sealed class DocumentoRepository(ContixDbContext context) : Repository<Do
             d.Comentario, d.Competencia, d.DataVencimento, d.PublicadoEm, d.AdicionadoPorId,
             d.AdicionadoPor!.Nome, d.UpdatedAt,
             d.Leituras.Any(l => l.UsuarioId == usuarioId),
-            d.Leituras.Where(l => l.UsuarioId == usuarioId).Select(l => (DateTime?)l.LidoEm).FirstOrDefault()));
+            d.Leituras.Where(l => l.UsuarioId == usuarioId).Select(l => (DateTime?)l.LidoEm).FirstOrDefault(),
+            d.Origem,
+            d.Leituras.Count(l => (l.Usuario!.Perfil == PerfilUsuario.Cliente) == (d.Origem == OrigemDocumento.Escritorio))));
 }
