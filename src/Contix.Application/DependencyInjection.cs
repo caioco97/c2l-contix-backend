@@ -1,5 +1,6 @@
 using Contix.Application.Features.Auth;
 using Contix.Application.Features.Certidoes;
+using Contix.Application.Features.Certidoes.Emissao;
 using Contix.Application.Features.Documentos;
 using Contix.Application.Features.Empregados;
 using Contix.Application.Features.Empresas;
@@ -42,6 +43,8 @@ public static class DependencyInjection
         services.AddScoped<IAvisoCertidaoService, AvisoCertidaoService>();
         services.AddScoped<INoticiaService, NoticiaService>();
         services.AddScoped<ICertidaoService, CertidaoService>();
+        services.AddScoped<IEmissaoCertidaoService, EmissaoCertidaoService>();
+        services.AddScoped<IProcessadorEmissaoCertidao, ProcessadorEmissaoCertidao>();
         return services;
     }
 }

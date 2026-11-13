@@ -42,7 +42,7 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("aviso_vencimento_30_em");
 
-                    b.Property<Guid>("CadastradoPorId")
+                    b.Property<Guid?>("CadastradoPorId")
                         .HasColumnType("uuid")
                         .HasColumnName("cadastrado_por_id");
 
@@ -62,6 +62,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("Emissao")
                         .HasColumnType("date")
                         .HasColumnName("emissao");
+
+                    b.Property<bool>("EmitidaAutomaticamente")
+                        .HasColumnType("boolean")
+                        .HasColumnName("emitida_automaticamente");
 
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
@@ -135,6 +139,68 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_certidoes_tenant_id_empresa_id_tipo_validade");
 
                     b.ToTable("certidoes", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.ConfiguracaoEmissaoCertidao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativa");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int>("DiasAntecedencia")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias_antecedencia");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<Guid?>("ResponsavelId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsavel_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.PrimitiveCollection<string[]>("Tipos")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("tipos");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_configuracoes_emissao_certidao");
+
+                    b.HasIndex("EmpresaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_configuracoes_emissao_certidao_empresa_id")
+                        .HasFilter("is_deleted = false");
+
+                    b.HasIndex("ResponsavelId")
+                        .HasDatabaseName("ix_configuracoes_emissao_certidao_responsavel_id");
+
+                    b.ToTable("configuracoes_emissao_certidao", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Documento", b =>
@@ -392,6 +458,106 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasFilter("enviado_em IS NULL");
 
                     b.ToTable("emails_pendentes", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.EmissaoCertidao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("CertidaoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("certidao_id");
+
+                    b.Property<DateTime?>("ConcluidaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("concluida_em");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Mensagem")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("mensagem");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origem");
+
+                    b.Property<string>("Provedor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("provedor");
+
+                    b.Property<DateTime>("ProximaTentativaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proxima_tentativa_em");
+
+                    b.Property<Guid?>("SolicitadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitado_por_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("integer")
+                        .HasColumnName("tentativas");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("tipo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_emissoes_certidao");
+
+                    b.HasIndex("CertidaoId")
+                        .HasDatabaseName("ix_emissoes_certidao_certidao_id");
+
+                    b.HasIndex("EmpresaId")
+                        .HasDatabaseName("ix_emissoes_certidao_empresa_id");
+
+                    b.HasIndex("SolicitadoPorId")
+                        .HasDatabaseName("ix_emissoes_certidao_solicitado_por_id");
+
+                    b.HasIndex("Status", "ProximaTentativaEm")
+                        .HasDatabaseName("ix_emissoes_certidao_status_proxima_tentativa_em");
+
+                    b.HasIndex("TenantId", "EmpresaId", "CreatedAt")
+                        .HasDatabaseName("ix_emissoes_certidao_tenant_id_empresa_id_created_at");
+
+                    b.ToTable("emissoes_certidao", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Empregado", b =>
@@ -1734,7 +1900,6 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("CadastradoPorId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_certidoes_usuarios_cadastrado_por_id");
 
                     b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
@@ -1747,6 +1912,26 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("CadastradoPor");
 
                     b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.ConfiguracaoEmissaoCertidao", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_configuracoes_emissao_certidao_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Responsavel")
+                        .WithMany()
+                        .HasForeignKey("ResponsavelId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_configuracoes_emissao_certidao_usuarios_responsavel_id");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("Responsavel");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Documento", b =>
@@ -1819,6 +2004,34 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Documento");
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.EmissaoCertidao", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Certidao", "Certidao")
+                        .WithMany()
+                        .HasForeignKey("CertidaoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_emissoes_certidao_certidoes_certidao_id");
+
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_emissoes_certidao_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "SolicitadoPor")
+                        .WithMany()
+                        .HasForeignKey("SolicitadoPorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_emissoes_certidao_usuarios_solicitado_por_id");
+
+                    b.Navigation("Certidao");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("SolicitadoPor");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Empregado", b =>

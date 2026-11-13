@@ -83,3 +83,35 @@ public sealed class CertidaoConfiguration : IEntityTypeConfiguration<Certidao>
         b.HasIndex(x => new { x.TenantId, x.Validade });
     }
 }
+
+public sealed class ConfiguracaoEmissaoCertidaoConfiguration : IEntityTypeConfiguration<ConfiguracaoEmissaoCertidao>
+{
+    public void Configure(EntityTypeBuilder<ConfiguracaoEmissaoCertidao> b)
+    {
+        b.ToTable("configuracoes_emissao_certidao");
+        b.PrimitiveCollection(x => x.Tipos).ElementType(e => e.HasConversion<string>());
+        b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Responsavel).WithMany().HasForeignKey(x => x.ResponsavelId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(x => x.EmpresaId).IsUnique().HasFilter("is_deleted = false");
+    }
+}
+
+public sealed class EmissaoCertidaoConfiguration : IEntityTypeConfiguration<EmissaoCertidao>
+{
+    public void Configure(EntityTypeBuilder<EmissaoCertidao> b)
+    {
+        b.ToTable("emissoes_certidao");
+        b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+        b.Property(x => x.Origem).HasConversion<string>().HasMaxLength(20);
+        b.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+        b.Property(x => x.Provedor).HasMaxLength(50);
+        b.Property(x => x.Mensagem).HasMaxLength(1000);
+        b.Ignore(x => x.EmAberto);
+        b.HasOne(x => x.Empresa).WithMany().HasForeignKey(x => x.EmpresaId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.Certidao).WithMany().HasForeignKey(x => x.CertidaoId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(x => x.SolicitadoPor).WithMany().HasForeignKey(x => x.SolicitadoPorId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.CreatedAt });
+        // Fila do job.
+        b.HasIndex(x => new { x.Status, x.ProximaTentativaEm });
+    }
+}

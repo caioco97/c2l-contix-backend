@@ -34,8 +34,12 @@ public class Certidao : TenantEntity
     public DateTime? AvisoVencimento15Em { get; private set; }
     public DateTime? AvisoVencidaEm { get; private set; }
 
-    public Guid CadastradoPorId { get; set; }
+    /// <summary>Quem cadastrou. Nulo quando a certidão foi emitida automaticamente.</summary>
+    public Guid? CadastradoPorId { get; set; }
     public Usuario? CadastradoPor { get; set; }
+
+    /// <summary>Emitida pela integração (emissão automática), e não cadastrada à mão.</summary>
+    public bool EmitidaAutomaticamente { get; set; }
 
     public bool PossuiArquivo => StorageKey is not null;
 

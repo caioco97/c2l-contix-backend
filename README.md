@@ -174,6 +174,18 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 - **Tipos:** `FederalPgfn`, `Estadual`, `Municipal`, `Fgts`, `Trabalhista`. **Situação:** `Negativa`, `PositivaComEfeitoNegativa`, `Positiva`.
 - **Atual:** a de validade mais recente de cada tipo; renovar uma certidão vencida a tira do painel. `statusValidade` é `Vigente`, `AVencer` (até 30 dias) ou `Vencida`; `regular` = não positiva e dentro da validade.
 
+#### Emissão automática
+
+| Método | Rota | Perfil | Descrição |
+| --- | --- | --- | --- |
+| GET / PUT | `/empresas/{id}/certidoes/emissao-automatica` | escritório | Liga/desliga, `tipos`, `diasAntecedencia` (0–60) e `responsavelId` (avisado das falhas; vazio = toda a equipe). O GET informa se a integração está habilitada e os tipos suportados |
+| POST | `/empresas/{id}/certidoes/emissoes` | escritório | "Emitir agora": `{ tipos? }` (vazio = os configurados). Põe na fila e responde 202 |
+| GET | `/empresas/{id}/certidoes/emissoes?limite=30` | escritório | Histórico das emissões (`Pendente`, `Emitida`, `Falha`), com tentativas e mensagem do órgão |
+
+- **Por que integrador:** os portais oficiais (RFB/PGFN, Caixa, TST, SEFAZ, prefeituras) não têm API pública para empresas e usam captcha. A emissão passa por um integrador que resolve isso e devolve o PDF; o primeiro é a [Infosimples](https://infosimples.com/consultas/) (cobrança por consulta). O Conecta gov.br só atende órgãos públicos.
+- **Tipos cobertos:** Federal (RFB/PGFN), FGTS (CRF) e Trabalhista (CNDT). Estadual e municipal variam por UF/município e ficam para uma próxima fase (a Infosimples tem consultas de SEFAZ e prefeituras que podem ser ligadas em `Certidoes:Emissao:Infosimples:Consultas`).
+- **Job** (a cada `Certidoes:Emissao:IntervaloMinutos`): agenda os tipos sem certidão, dentro da antecedência ou com certidão positiva (no máximo uma vez a cada 20 h por tipo) e processa a fila. A certidão emitida entra no histórico com PDF, situação e validade (`emitidaAutomaticamente = true`). Falha temporária tenta de novo em 30 min e 2 h; recusa do órgão ou 3 falhas viram `Falha` e notificam (`EmissaoCertidaoFalha`) quem pediu e o responsável.
+
 ## Configuração
 
 Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de ambiente (`Secao__Chave`).
@@ -188,6 +200,8 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 | `FileStorage__LocalPath` | Pasta dos arquivos enviados |
 | `Documentos__TamanhoMaximoMb` / `Documentos__ExtensoesPermitidas__N` | Regras de upload |
 | `Swagger__Enabled` | Expõe o Swagger (ligado em Development) |
+| `Certidoes__Emissao__Provider` | `Desabilitado` (padrão), `Simulado` (Development: certidão fictícia; razão social com "PENDENTE" simula recusa) ou `Infosimples` |
+| `Certidoes__Emissao__Infosimples__Token` | Token da API Infosimples. **Secret**; sem ele a emissão fica desabilitada |
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
 
@@ -215,4 +229,4 @@ Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migr
 
 ## Próximos passos (backlog)
 
-Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), editor rico nas notícias, emissão automática de CND, NF-e, tarefas recorrentes (obrigações mensais). Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
+Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), editor rico nas notícias, emissão automática de CND estadual e municipal, NF-e, tarefas recorrentes (obrigações mensais). Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.

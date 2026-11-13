@@ -25,7 +25,7 @@ public sealed record CertidaoDto(
     Guid Id, Guid EmpresaId, string EmpresaNome, TipoCertidao Tipo, string TipoNome, SituacaoCertidao Situacao,
     string? Numero, DateOnly Emissao, DateOnly Validade, ValidadeCertidao StatusValidade, int DiasParaVencer,
     bool Regular, bool Atual, string? Observacao, bool PossuiArquivo, string? NomeArquivo, long? TamanhoBytes,
-    string CadastradoPorNome, DateTime CreatedAt, DateTime? UpdatedAt);
+    string CadastradoPorNome, bool EmitidaAutomaticamente, DateTime CreatedAt, DateTime? UpdatedAt);
 
 /// <summary>Painel do escritório: certidões atuais vencidas, a vencer e irregulares de todas as empresas.</summary>
 public sealed record PainelCertidoesDto(

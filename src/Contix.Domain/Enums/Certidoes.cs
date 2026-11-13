@@ -29,3 +29,22 @@ public enum ValidadeCertidao
     AVencer = 2,
     Vencida = 3
 }
+
+/// <summary>Andamento de uma emissão automática de certidão.</summary>
+public enum StatusEmissaoCertidao
+{
+    /// <summary>Na fila (inclusive aguardando nova tentativa).</summary>
+    Pendente = 1,
+    Emitida = 2,
+    /// <summary>Falha definitiva: esgotou as tentativas ou o órgão recusou a emissão.</summary>
+    Falha = 3
+}
+
+/// <summary>O que originou a emissão.</summary>
+public enum OrigemEmissaoCertidao
+{
+    /// <summary>Renovação automática (certidão ausente ou perto do vencimento).</summary>
+    Agendada = 1,
+    /// <summary>Pedido de um colaborador ("Emitir agora").</summary>
+    Manual = 2
+}
