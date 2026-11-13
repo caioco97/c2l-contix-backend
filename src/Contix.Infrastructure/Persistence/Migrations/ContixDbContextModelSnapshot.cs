@@ -305,6 +305,59 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("configuracoes_emissao_certidao", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.DispositivoPush", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Nome")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome");
+
+                    b.Property<string>("Plataforma")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("plataforma");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("token");
+
+                    b.Property<DateTime>("UltimoUsoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultimo_uso_em");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_dispositivos_push");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("ix_dispositivos_push_token");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_dispositivos_push_usuario_id");
+
+                    b.ToTable("dispositivos_push", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Documento", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1476,6 +1529,72 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("preferencias_notificacao", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.PushPendente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Dados")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("dados");
+
+                    b.Property<DateTime?>("EnviadoEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enviado_em");
+
+                    b.Property<string>("Mensagem")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("mensagem");
+
+                    b.Property<DateTime>("ProximaTentativaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proxima_tentativa_em");
+
+                    b.Property<int>("Tentativas")
+                        .HasColumnType("integer")
+                        .HasColumnName("tentativas");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("titulo");
+
+                    b.Property<string>("UltimoErro")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("ultimo_erro");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_pushes_pendentes");
+
+                    b.HasIndex("ProximaTentativaEm")
+                        .HasDatabaseName("ix_pushes_pendentes_proxima_tentativa_em")
+                        .HasFilter("enviado_em IS NULL");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_pushes_pendentes_usuario_id");
+
+                    b.ToTable("pushes_pendentes", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2329,6 +2448,18 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Responsavel");
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.DispositivoPush", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_dispositivos_push_usuarios_usuario_id");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Documento", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Usuario", "AdicionadoPor")
@@ -2706,6 +2837,16 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_preferencias_notificacao_usuarios_usuario_id");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.PushPendente", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_pushes_pendentes_usuarios_usuario_id");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.RefreshToken", b =>

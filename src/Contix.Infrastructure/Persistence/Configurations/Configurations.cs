@@ -328,3 +328,33 @@ public sealed class EmailPendenteConfiguration : IEntityTypeConfiguration<EmailP
         b.HasIndex(x => x.ProximaTentativaEm).HasFilter("enviado_em IS NULL");
     }
 }
+
+public sealed class PushPendenteConfiguration : IEntityTypeConfiguration<PushPendente>
+{
+    public void Configure(EntityTypeBuilder<PushPendente> b)
+    {
+        b.ToTable("pushes_pendentes");
+        b.Property(x => x.Titulo).HasMaxLength(300).IsRequired();
+        b.Property(x => x.Mensagem).HasMaxLength(2000).IsRequired();
+        b.Property(x => x.Dados).HasColumnType("jsonb").IsRequired();
+        b.Property(x => x.UltimoErro).HasMaxLength(1000);
+        b.Ignore(x => x.Desistiu);
+        b.HasOne<Usuario>().WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+        // Fila: apenas não enviados, por ordem de próxima tentativa.
+        b.HasIndex(x => x.ProximaTentativaEm).HasFilter("enviado_em IS NULL");
+    }
+}
+
+public sealed class DispositivoPushConfiguration : IEntityTypeConfiguration<DispositivoPush>
+{
+    public void Configure(EntityTypeBuilder<DispositivoPush> b)
+    {
+        b.ToTable("dispositivos_push");
+        b.Property(x => x.Token).HasMaxLength(DispositivoPush.TamanhoMaximoToken).IsRequired();
+        b.Property(x => x.Plataforma).HasConversion<string>().HasMaxLength(20);
+        b.Property(x => x.Nome).HasMaxLength(100);
+        b.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => x.Token).IsUnique();
+        b.HasIndex(x => x.UsuarioId);
+    }
+}

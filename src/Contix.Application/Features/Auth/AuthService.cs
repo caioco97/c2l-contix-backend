@@ -1,5 +1,6 @@
 using Contix.Application.Common.Abstractions;
 using Contix.Application.Common.Exceptions;
+using Contix.Application.Features.Dispositivos;
 using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Usuarios;
@@ -17,6 +18,7 @@ public sealed class AuthService(
     IEscritorioRepository escritorios,
     IRefreshTokenRepository refreshTokens,
     ITokenRedefinicaoSenhaRepository tokensRedefinicao,
+    IDispositivoPushRepository dispositivos,
     IEmailQueue emails,
     IOptions<NotificacaoOptions> notificacaoOptions,
     ITokenService tokenService,
@@ -201,6 +203,9 @@ public sealed class AuthService(
             t.Revogar(agora, "Senha redefinida");
         foreach (var outro in await tokensRedefinicao.ListarValidosDoUsuarioAsync(usuario.Id, agora, ct))
             if (outro.Id != token.Id) outro.Invalidar(agora);
+        // Aparelhos com sessão encerrada também deixam de receber push.
+        foreach (var dispositivo in await dispositivos.ListarDoUsuarioAsync(usuario.Id, ct))
+            dispositivos.Remove(dispositivo);
 
         await unitOfWork.SaveChangesAsync(ct);
         logger.LogInformation("Senha redefinida para o usuário {UsuarioId}", usuario.Id);

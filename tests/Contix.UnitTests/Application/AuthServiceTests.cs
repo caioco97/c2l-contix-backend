@@ -1,6 +1,7 @@
 using Contix.Application.Common.Abstractions;
 using Contix.Application.Common.Exceptions;
 using Contix.Application.Features.Auth;
+using Contix.Application.Features.Dispositivos;
 using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Usuarios;
@@ -20,6 +21,7 @@ public class AuthServiceTests
     private readonly ITokenService _tokenService = Substitute.For<ITokenService>();
     private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
     private readonly ITokenRedefinicaoSenhaRepository _tokensRedefinicao = Substitute.For<ITokenRedefinicaoSenhaRepository>();
+    private readonly IDispositivoPushRepository _dispositivos = Substitute.For<IDispositivoPushRepository>();
     private readonly IEmailQueue _emails = Substitute.For<IEmailQueue>();
     private readonly IUnitOfWork _uow = Substitute.For<IUnitOfWork>();
     private readonly IDateTimeProvider _clock = Substitute.For<IDateTimeProvider>();
@@ -34,7 +36,7 @@ public class AuthServiceTests
         _tokenService.HashRefreshToken(Arg.Any<string>()).Returns(c => "hash-" + c.Arg<string>());
         _tokenService.HashToken(Arg.Any<string>()).Returns(c => "th-" + c.Arg<string>());
         _tokenService.GerarTokenOpaco().Returns(new GeneratedOpaqueToken("abc", "th-abc"));
-        _sut = new AuthService(_usuarios, Substitute.For<IEscritorioRepository>(), _tokens, _tokensRedefinicao, _emails,
+        _sut = new AuthService(_usuarios, Substitute.For<IEscritorioRepository>(), _tokens, _tokensRedefinicao, _dispositivos, _emails,
             Options.Create(new NotificacaoOptions { UrlFrontend = "https://app.contix.dev" }), _tokenService, _hasher,
             _uow, Substitute.For<ICurrentUser>(), _clock, NullLogger<AuthService>.Instance);
     }
@@ -164,7 +166,7 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task Redefinir_senha_troca_hash_usa_token_e_revoga_sessoes()
+    public async Task Redefinir_senha_troca_hash_usa_token_revoga_sessoes_e_remove_aparelhos_de_push()
     {
         var usuario = NovoUsuario();
         for (var i = 0; i < Usuario.MaxTentativasLogin; i++) usuario.RegistrarFalhaLogin(_agora);
@@ -173,6 +175,8 @@ public class AuthServiceTests
         _tokensRedefinicao.GetByHashAsync("th-abc").Returns(token);
         _usuarios.GetByIdIgnorandoTenantAsync(usuario.Id).Returns(usuario);
         _tokens.ListarAtivosDoUsuarioAsync(usuario.Id, _agora).Returns([sessao]);
+        var aparelho = new DispositivoPush { UsuarioId = usuario.Id, Token = "ExponentPushToken[x]" };
+        _dispositivos.ListarDoUsuarioAsync(usuario.Id).Returns([aparelho]);
         _hasher.Hash("Nova@1234").Returns("novo-hash");
 
         await _sut.RedefinirSenhaAsync(new RedefinirSenhaRequest("abc", "Nova@1234"));
@@ -181,6 +185,7 @@ public class AuthServiceTests
         Assert.False(usuario.EstaBloqueado(_agora));
         Assert.NotNull(token.UsadoEm);
         Assert.NotNull(sessao.RevogadoEm);
+        _dispositivos.Received(1).Remove(aparelho);
         await _uow.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
