@@ -1,6 +1,6 @@
 # Zerar o banco (somente desenvolvimento)
 
-> ⚠️ **Destrutivo e sem volta.** Apaga todos os dados do Postgres do `docker compose` local, mantendo apenas o usuário **Admin C2L Tech**, o escritório dele e a tabela `__EFMigrationsHistory`.
+> ⚠️ **Destrutivo e sem volta.** Apaga todos os dados do Postgres do `docker compose` local, mantendo apenas o usuário **Admin C2L Tech**, o escritório dele e o histórico de migrations do EF (`__ef_migrations_history`).
 
 ```bash
 docker compose up -d db
@@ -37,3 +37,16 @@ Rode com `--com-arquivos` (`.sh`) ou `-ComArquivos` (`.ps1`). Isso limpa:
 - o volume `contix_storage`, usado quando a API roda no docker compose (se existir).
 
 O logo do escritório é uma URL externa e não fica no storage.
+
+## Inicializar / reparar o histórico de migrations
+
+Se a API não sobe porque o EF tenta criar tabelas que já existem (por exemplo, `relation "escritorios" already exists`), o histórico de migrations foi apagado. A primeira versão do `zerar-banco.sql` fazia isso. Rode:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\db\inicializar-banco.ps1   # Windows
+```
+```bash
+scripts/db/inicializar-banco.sh                                              # Linux/macOS/Git Bash
+```
+
+O script não apaga nem altera dados. Ele olha quais tabelas e colunas existem, marca como aplicadas as migrations correspondentes e deixa as que faltam para a API aplicar ao subir. Com o banco vazio, ele não faz nada e a API cria tudo sozinha. Ao criar uma migration nova, acrescente-a na lista do `inicializar-banco.sql`.
