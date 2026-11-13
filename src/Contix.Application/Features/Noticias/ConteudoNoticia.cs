@@ -79,7 +79,7 @@ public static partial class ConteudoNoticia
     {
         if (string.IsNullOrWhiteSpace(conteudo)) return string.Empty;
         var texto = conteudo.Trim();
-        return EhHtml(texto) ? sanitizer.Sanitize(texto).Trim() : TextoParaHtml(texto);
+        return EhHtml(texto) ? ParagrafosVaziosNasPontas().Replace(sanitizer.Sanitize(texto), string.Empty).Trim() : TextoParaHtml(texto);
     }
 
     /// <summary>Texto puro do conteúdo (sem tags), para o resumo automático e para validar se há texto.</summary>
@@ -111,6 +111,10 @@ public static partial class ConteudoNoticia
 
     [GeneratedRegex(@"^\s*<(p|h[1-6]|ul|ol|blockquote|div|br)[\s/>]", RegexOptions.IgnoreCase)]
     private static partial Regex InicioHtml();
+
+    /// <summary>Parágrafos vazios que o editor deixa no começo ou no fim do texto.</summary>
+    [GeneratedRegex(@"^(\s*<p>\s*(<br\s*/?>)?\s*</p>)+|(\s*<p>\s*(<br\s*/?>)?\s*</p>)+\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex ParagrafosVaziosNasPontas();
 
     [GeneratedRegex(@"\r?\n\s*\r?\n")]
     private static partial Regex ParagrafoSeparador();

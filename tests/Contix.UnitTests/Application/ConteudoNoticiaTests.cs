@@ -30,6 +30,10 @@ public class ConteudoNoticiaTests
         Assert.Equal(esperado, ConteudoNoticia.ParaGravar(entrada));
 
     [Fact]
+    public void Paragrafos_vazios_nas_pontas_sao_removidos() =>
+        Assert.Equal("<p>a</p><p></p><p>b</p>", ConteudoNoticia.ParaGravar("<p><br></p><p>a</p><p></p><p>b</p><p><br></p><p></p>"));
+
+    [Fact]
     public void Links_exibidos_abrem_em_nova_aba_com_seguranca()
     {
         const string html = "<p><a href=\"https://gov.br\" target=\"_self\">gov</a></p>";
