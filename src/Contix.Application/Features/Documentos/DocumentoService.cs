@@ -24,6 +24,10 @@ public interface IDocumentoService
     Task<IReadOnlyList<VencimentoDto>> ListarVencimentosAsync(Guid empresaId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
     /// <returns>Quantidade de usuários do cliente avisados.</returns>
     Task<int> EnviarAoClienteAsync(Guid empresaId, EnviarDocumentosRequest request, CancellationToken ct = default);
+    /// <summary>Quem visualizou ou baixou o documento (somente escritório).</summary>
+    Task<AcessosDocumentoDto> ListarAcessosAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default);
+    /// <summary>Histórico de ações do documento (somente escritório).</summary>
+    Task<IReadOnlyList<EventoDocumentoDto>> ListarHistoricoAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default);
 }
 
 public sealed class DocumentoService(
@@ -85,8 +89,10 @@ public sealed class DocumentoService(
                     Competencia = competencia,
                     DataVencimento = command.DataVencimento,
                     PublicadoEm = agora,
-                    AdicionadoPorId = usuarioId
+                    AdicionadoPorId = usuarioId,
+                    Origem = currentUser.EhCliente ? OrigemDocumento.Cliente : OrigemDocumento.Escritorio
                 };
+                doc.Eventos.Add(DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Upload, usuarioId, agora, $"Pasta {pasta.Nome}"));
                 // Quem enviou já conhece o arquivo: não deve aparecer como "não lido" para ele.
                 doc.Leituras.Add(new DocumentoLeitura { DocumentoId = doc.Id, UsuarioId = usuarioId, LidoEm = agora });
                 doc.StorageKey = $"{empresa.TenantId:N}/{empresaId:N}/{doc.Id:N}{Path.GetExtension(arquivo.NomeArquivo).ToLowerInvariant()}";
@@ -126,7 +132,10 @@ public sealed class DocumentoService(
         var doc = await CarregarAsync(empresaId, documentoId, ct);
 
         var stream = await storage.OpenReadAsync(doc.StorageKey, ct);
-        await documentos.MarcarComoLidosAsync([doc.Id], currentUser.RequireUserId(), clock.UtcNow, ct);
+        var usuarioId = currentUser.RequireUserId();
+        var agora = clock.UtcNow;
+        await documentos.MarcarComoLidosAsync([doc.Id], usuarioId, agora, ct);
+        await documentos.RegistrarEventosAsync([DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Download, usuarioId, agora)], ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return new ArquivoParaDownload(stream, doc.ContentType, doc.NomeArquivoOriginal);
@@ -153,7 +162,12 @@ public sealed class DocumentoService(
         }
         zip.Position = 0;
 
-        await documentos.MarcarComoLidosAsync(ids, currentUser.RequireUserId(), clock.UtcNow, ct);
+        var usuarioId = currentUser.RequireUserId();
+        var agora = clock.UtcNow;
+        await documentos.MarcarComoLidosAsync(ids, usuarioId, agora, ct);
+        var detalhe = $"Download em lote ({ids.Count} arquivos)";
+        await documentos.RegistrarEventosAsync(
+            ids.Select(id => DocumentoEvento.Criar(id, TipoEventoDocumento.Download, usuarioId, agora, detalhe)), ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         return new ArquivoParaDownload(zip, "application/zip", $"documentos-{clock.UtcNow:yyyyMMddHHmmss}.zip");
@@ -163,7 +177,10 @@ public sealed class DocumentoService(
     {
         await acesso.GarantirAcessoAsync(empresaId, ct);
         var doc = await CarregarAsync(empresaId, documentoId, ct);
-        await documentos.MarcarComoLidosAsync([doc.Id], currentUser.RequireUserId(), clock.UtcNow, ct);
+        var usuarioId = currentUser.RequireUserId();
+        var agora = clock.UtcNow;
+        await documentos.MarcarComoLidosAsync([doc.Id], usuarioId, agora, ct);
+        await documentos.RegistrarEventosAsync([DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Visualizacao, usuarioId, agora)], ct);
         await unitOfWork.SaveChangesAsync(ct);
     }
 
@@ -176,6 +193,8 @@ public sealed class DocumentoService(
             (!options.Value.ClientePodeExcluirProprios || doc.AdicionadoPorId != currentUser.RequireUserId()))
             throw new ForbiddenException("Você só pode excluir documentos enviados por você.");
 
+        await documentos.RegistrarEventosAsync(
+            [DocumentoEvento.Criar(doc.Id, TipoEventoDocumento.Exclusao, currentUser.RequireUserId(), clock.UtcNow)], ct);
         documentos.Remove(doc); // soft delete; o arquivo é mantido para auditoria
         await unitOfWork.SaveChangesAsync(ct);
         logger.LogInformation("Documento {DocumentoId} excluído pelo usuário {UsuarioId}", doc.Id, currentUser.UserId);
@@ -220,11 +239,60 @@ public sealed class DocumentoService(
             _ => pastaId is { } p ? $"/documentos/{p}" : "/documentos", "Ver documentos",
             IgnorarPreferenciaEmail: true,
             MensagemAdicional: string.IsNullOrWhiteSpace(request.Mensagem) ? null : request.Mensagem.Trim()), ct);
+
+        var avisados = clientes.Where(c => c.Id != currentUser.UserId).ToList();
+        var detalheEnvio = $"Enviado para {avisados.Count} usuário(s): {string.Join(", ", avisados.Select(c => c.Nome))}";
+        var agoraEnvio = clock.UtcNow;
+        var remetente = currentUser.RequireUserId();
+        await documentos.RegistrarEventosAsync(
+            docs.Select(d => DocumentoEvento.Criar(d.Id, TipoEventoDocumento.Envio, remetente, agoraEnvio, detalheEnvio)), ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         logger.LogInformation("{Quantidade} documento(s) da empresa {EmpresaId} enviados a {Destinatarios} usuário(s)",
             docs.Count, empresaId, clientes.Count);
         return clientes.Count(c => c.Id != currentUser.UserId);
+    }
+
+    public async Task<AcessosDocumentoDto> ListarAcessosAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
+    {
+        if (currentUser.EhCliente) throw new ForbiddenException();
+        var empresa = await acesso.GarantirAcessoAsync(empresaId, ct);
+        var doc = await CarregarAsync(empresaId, documentoId, ct);
+
+        // Destinatários: quem está do outro lado de quem publicou.
+        var esperados = doc.Origem == OrigemDocumento.Cliente
+            ? await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct)
+            : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ct);
+        var interacoes = (await documentos.ListarInteracoesAsync(doc.Id, ct)).ToDictionary(i => i.UsuarioId);
+
+        var usuarios = new List<AcessoDocumentoDto>();
+        foreach (var d in esperados.Where(d => d.Id != doc.AdicionadoPorId))
+        {
+            interacoes.Remove(d.Id, out var i);
+            usuarios.Add(new AcessoDocumentoDto(d.Id, d.Nome, d.Email, d.EhDoEscritorio,
+                i?.LidoEm, i?.UltimoDownloadEm, i?.Downloads ?? 0, Destinatario: true));
+        }
+        // Demais usuários que abriram o documento (ex.: colegas do escritório), exceto quem publicou.
+        foreach (var i in interacoes.Values.Where(i => i.UsuarioId != doc.AdicionadoPorId))
+            usuarios.Add(new AcessoDocumentoDto(i.UsuarioId, i.Nome, i.Email, i.Perfil != PerfilUsuario.Cliente,
+                i.LidoEm, i.UltimoDownloadEm, i.Downloads, Destinatario: false));
+
+        var ordenados = usuarios
+            .OrderByDescending(u => u.Destinatario)
+            .ThenBy(u => u.VisualizadoEm is null)
+            .ThenBy(u => u.Nome, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+        var destinatariosTotal = ordenados.Count(u => u.Destinatario);
+        return new AcessosDocumentoDto(doc.Id, doc.Origem, destinatariosTotal,
+            ordenados.Count(u => u.Destinatario && u.VisualizadoEm is not null), ordenados);
+    }
+
+    public async Task<IReadOnlyList<EventoDocumentoDto>> ListarHistoricoAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
+    {
+        if (currentUser.EhCliente) throw new ForbiddenException();
+        await acesso.GarantirAcessoAsync(empresaId, ct);
+        var doc = await CarregarAsync(empresaId, documentoId, ct);
+        return await documentos.ListarEventosAsync(doc.Id, ct);
     }
 
     private async Task NotificarNovosDocumentosAsync(Empresa empresa, Pasta pasta, IReadOnlyList<Documento> novos, CancellationToken ct)

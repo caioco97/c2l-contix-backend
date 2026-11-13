@@ -77,7 +77,7 @@ Dependências apontam para dentro: `Api → Application → Domain` e `Infrastru
 - **Perfis:** `Administrador`, `Colaborador` (escritório) e `Cliente` (portal). Usuários do cliente só acessam empresas às quais estão vinculados; acesso a outra empresa retorna **404** para não revelar sua existência.
 - **Autenticação:** access token JWT de 15 min + refresh token de 7 dias, opaco, armazenado apenas como hash SHA-256. Cada refresh rotaciona o token; reutilizar um token já rotacionado revoga a cadeia inteira. Bloqueio de 15 min após 5 senhas erradas e rate limit nos endpoints de autenticação.
 - **Erros** sempre em `application/problem+json` (ProblemDetails), com `errors` por campo em validações e `traceId` (= header `X-Correlation-Id`). Stack trace só em `Development`.
-- **Documentos:** armazenados via `IFileStorage` (disco local por padrão; S3/Azure Blob podem ser adicionados implementando a interface). Tamanho máximo e extensões permitidas configuráveis na seção `Documentos`.
+- **Documentos:** armazenados via `IFileStorage` (disco local por padrão; S3/Azure Blob podem ser adicionados implementando a interface). Tamanho máximo e extensões permitidas configuráveis na seção `Documentos`. Cada documento guarda a `origem` (publicado pelo escritório ou enviado pelo cliente) e um histórico imutável em `documento_eventos`; os destinatários de um documento são os usuários do lado oposto a quem o publicou.
 - **JSON:** camelCase, enums como string, datas ISO 8601 (`DateOnly` como `yyyy-MM-dd`).
 
 ## Endpoints (v1)
@@ -99,13 +99,15 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 | GET / PUT / DELETE | `/empresas/{id}` | — / escritório / admin | Detalhe / atualiza / exclusão lógica |
 | GET / POST | `/empresas/{id}/pastas` | autenticado / escritório | Árvore de pastas com não lidos / cria subpasta |
 | PUT / DELETE | `/empresas/{id}/pastas/{pastaId}` | escritório | Renomeia / exclui pasta vazia |
-| GET | `/empresas/{id}/documentos` | autenticado | Lista com filtros `pastaId`, `busca`, `status` (`Todos`, `NaoLidos`, `Lidos`), `orderBy`, `desc`, `page`, `pageSize` |
+| GET | `/empresas/{id}/documentos` | autenticado | Lista com filtros `pastaId` (opcional: sem ele busca em todas as pastas), `busca`, `status` (`Todos`, `NaoLidos`, `Lidos`), `competencia` (qualquer dia do mês), `origem` (`Escritorio`, `Cliente`), `orderBy` (`nome`, `publicadoEm`, `dataVencimento`, `competencia`, `modificado`), `desc`, `page`, `pageSize`. Cada item traz `origem` e `visualizacoesDestinatarios` |
 | POST | `/empresas/{id}/documentos` | autenticado | Upload multipart (`pastaId`, `arquivos[]`, `comentario`, `competencia`, `dataVencimento`) |
 | GET | `/empresas/{id}/documentos/{docId}` | autenticado | Detalhe |
 | GET | `/empresas/{id}/documentos/{docId}/download` | autenticado | Baixa e marca como lido |
 | POST | `/empresas/{id}/documentos/download` | autenticado | Baixa vários em `.zip` (`{ documentoIds: [] }`) |
 | POST | `/empresas/{id}/documentos/{docId}/lido` | autenticado | Marca como lido |
 | DELETE | `/empresas/{id}/documentos/{docId}` | autenticado | Exclusão lógica (cliente só os que enviou) |
+| GET | `/empresas/{id}/documentos/{docId}/acessos` | escritório | Quem visualizou ou baixou, incluindo destinatários que ainda não abriram |
+| GET | `/empresas/{id}/documentos/{docId}/historico` | escritório | Auditoria: upload, visualização, download, envio e exclusão, com usuário e data/hora |
 | GET | `/empresas/{id}/documentos/vencimentos?inicio&fim` | autenticado | Calendário de vencimentos (padrão: mês atual) |
 | GET | `/solicitacoes/tipos` | autenticado | Catálogo de tipos de solicitação (departamento, prazo padrão, se exige anexo) |
 | GET | `/solicitacoes` | escritório | Fila de atendimento de todas as empresas. Filtros `empresaId`, `tipo`, `status`, `emAndamento`, `departamento`, `responsavelId`, `semResponsavel`, `atrasadas`, `busca`; `orderBy` = `numero`, `prazo`, `status`, `atualizado`, `createdAt` |

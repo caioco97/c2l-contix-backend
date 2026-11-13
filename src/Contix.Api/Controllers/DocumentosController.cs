@@ -10,7 +10,7 @@ namespace Contix.Api.Controllers;
 [Route("api/v1/empresas/{empresaId:guid}/documentos")]
 public sealed class DocumentosController(IDocumentoService service) : ApiControllerBase
 {
-    /// <summary>Lista documentos (filtros: pasta, texto, lidos/não lidos; ordenação: nome, publicadoEm, dataVencimento, modificado).</summary>
+    /// <summary>Lista documentos (filtros: pasta, texto, lidos/não lidos, competência, origem; ordenação: nome, publicadoEm, dataVencimento, competencia, modificado).</summary>
     [HttpGet]
     [ProducesResponseType(typeof(PagedResult<DocumentoDto>), StatusCodes.Status200OK)]
     public Task<PagedResult<DocumentoDto>> Pesquisar(Guid empresaId, [FromQuery] DocumentoFiltro filtro, CancellationToken ct) =>
@@ -76,6 +76,20 @@ public sealed class DocumentosController(IDocumentoService service) : ApiControl
         await service.ExcluirAsync(empresaId, documentoId, ct);
         return NoContent();
     }
+
+    /// <summary>Quem visualizou ou baixou o documento, incluindo destinatários que ainda não abriram (somente escritório).</summary>
+    [HttpGet("{documentoId:guid}/acessos")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(AcessosDocumentoDto), StatusCodes.Status200OK)]
+    public Task<AcessosDocumentoDto> Acessos(Guid empresaId, Guid documentoId, CancellationToken ct) =>
+        service.ListarAcessosAsync(empresaId, documentoId, ct);
+
+    /// <summary>Histórico de ações do documento: upload, visualização, download, envio e exclusão (somente escritório).</summary>
+    [HttpGet("{documentoId:guid}/historico")]
+    [Authorize(Policy = Policies.Escritorio)]
+    [ProducesResponseType(typeof(IReadOnlyList<EventoDocumentoDto>), StatusCodes.Status200OK)]
+    public Task<IReadOnlyList<EventoDocumentoDto>> Historico(Guid empresaId, Guid documentoId, CancellationToken ct) =>
+        service.ListarHistoricoAsync(empresaId, documentoId, ct);
 
     /// <summary>Documentos com vencimento no período (calendário de vencimentos). Padrão: mês atual.</summary>
     /// <summary>Envia documentos ao cliente: os usuários da empresa recebem notificação e e-mail com link para o portal.</summary>

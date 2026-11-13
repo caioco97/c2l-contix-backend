@@ -13,5 +13,9 @@ public interface IDocumentoRepository : IRepository<Documento>
     Task<IReadOnlyList<VencimentoDto>> ListarVencimentosAsync(Guid empresaId, DateOnly inicio, DateOnly fim, Guid usuarioId, CancellationToken ct = default);
     Task<IReadOnlyDictionary<Guid, int>> ContarNaoLidosPorPastaAsync(Guid empresaId, Guid usuarioId, CancellationToken ct = default);
     /// <summary>Registra a leitura dos documentos ainda não lidos pelo usuário.</summary>
+    Task<IReadOnlyList<EventoDocumentoDto>> ListarEventosAsync(Guid documentoId, CancellationToken ct = default);
+    /// <summary>Usuários que já interagiram com o documento (leitura e downloads).</summary>
+    Task<IReadOnlyList<InteracaoUsuarioDocumento>> ListarInteracoesAsync(Guid documentoId, CancellationToken ct = default);
+    Task RegistrarEventosAsync(IEnumerable<DocumentoEvento> eventos, CancellationToken ct = default);
     Task MarcarComoLidosAsync(IReadOnlyCollection<Guid> documentoIds, Guid usuarioId, DateTime agora, CancellationToken ct = default);
 }

@@ -112,6 +112,21 @@ public sealed class DocumentoConfiguration : IEntityTypeConfiguration<Documento>
         b.HasOne(x => x.AdicionadoPor).WithMany().HasForeignKey(x => x.AdicionadoPorId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.PastaId });
         b.HasIndex(x => new { x.EmpresaId, x.DataVencimento });
+        b.HasIndex(x => new { x.EmpresaId, x.Competencia });
+        b.Property(x => x.Origem).HasConversion<string>().HasMaxLength(20);
+    }
+}
+
+public sealed class DocumentoEventoConfiguration : IEntityTypeConfiguration<DocumentoEvento>
+{
+    public void Configure(EntityTypeBuilder<DocumentoEvento> b)
+    {
+        b.ToTable("documento_eventos");
+        b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+        b.Property(x => x.Detalhe).HasMaxLength(500);
+        b.HasOne(x => x.Documento).WithMany(x => x.Eventos).HasForeignKey(x => x.DocumentoId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.DocumentoId, x.OcorridoEm });
     }
 }
 
