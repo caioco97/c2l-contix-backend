@@ -48,6 +48,14 @@ Os testes de integração usam [Testcontainers](https://dotnet.testcontainers.or
 CONTIX_TEST_CONNECTION="Host=localhost;Database=contix_tests;Username=contix;Password=contix" dotnet test
 ```
 
+### Zerar o banco (desenvolvimento)
+
+```bash
+scripts/db/zerar-banco.sh   # apaga tudo, mantendo só o usuário "Admin C2L Tech"
+```
+
+Destrutivo. Detalhes, proteções e limpeza dos arquivos do storage em [scripts/db/README.md](scripts/db/README.md).
+
 ### Migrations
 
 ```bash
