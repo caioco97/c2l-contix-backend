@@ -23,6 +23,12 @@ public sealed class EmpregadosController(IEmpregadoService service) : ApiControl
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public Task<EmpregadoDto> Obter(Guid empresaId, Guid id, CancellationToken ct) => service.ObterAsync(empresaId, id, ct);
 
+    /// <summary>Ficha do empregado: cadastro, situação de hoje (férias, afastamento), férias, afastamentos, desligamento e rubricas.</summary>
+    [HttpGet("{id:guid}/ficha")]
+    [ProducesResponseType(typeof(FichaEmpregadoDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public Task<FichaEmpregadoDto> Ficha(Guid empresaId, Guid id, CancellationToken ct) => service.ObterFichaAsync(empresaId, id, ct);
+
     [HttpPost]
     [Authorize(Policy = Policies.Escritorio)]
     [ProducesResponseType(typeof(EmpregadoDto), StatusCodes.Status201Created)]

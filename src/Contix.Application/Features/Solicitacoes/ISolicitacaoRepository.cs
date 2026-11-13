@@ -14,6 +14,9 @@ public interface ISolicitacaoRepository : IRepository<Solicitacao>
 
     Task<SolicitacaoAnexo?> ObterAnexoAsync(Guid empresaId, Guid solicitacaoId, Guid anexoId, CancellationToken ct = default);
 
+    /// <summary>Solicitações que referenciam o empregado (inclui rubricas em que ele aparece), sem histórico.</summary>
+    Task<IReadOnlyList<Solicitacao>> ListarDoEmpregadoAsync(Guid empresaId, Guid empregadoId, CancellationToken ct = default);
+
     /// <summary>Reserva o próximo número da sequência do escritório (atômico).</summary>
     Task<int> ProximoNumeroAsync(Guid tenantId, CancellationToken ct = default);
 }
