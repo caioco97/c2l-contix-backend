@@ -5,7 +5,8 @@
 -- tabelas, mantendo apenas:
 --   * o usuário "Admin C2L Tech" (ou o nome passado em -v admin_nome=...);
 --   * o escritório (tenant) desse usuário, necessário para ele fazer login;
---   * a tabela "__EFMigrationsHistory" (o schema continua migrado).
+--   * a tabela de histórico de migrations do EF ("__ef_migrations_history"),
+--     para o schema continuar migrado.
 --
 -- Proteções:
 --   * exige -v confirmar=ZERAR;
@@ -78,13 +79,15 @@ BEGIN
     SELECT id, tenant_id INTO v_admin_id, v_tenant_id
       FROM usuarios WHERE nome = v_admin_nome AND NOT is_deleted;
 
-    -- Todas as tabelas do schema, menos as que guardam o admin e o histórico de migrations.
+    -- Todas as tabelas do schema, menos as que guardam o admin e o histórico de migrations
+    -- ("__ef_migrations_history"; o filtro pega qualquer nome de tabela de histórico).
     -- Sem CASCADE de propósito: se alguma FK nova apontar para usuarios/escritorios, o TRUNCATE falha e nada é apagado.
     SELECT string_agg(format('%I.%I', schemaname, tablename), ', ' ORDER BY tablename)
       INTO v_tabelas
       FROM pg_tables
      WHERE schemaname = current_schema()
-       AND tablename NOT IN ('__EFMigrationsHistory', 'usuarios', 'escritorios');
+       AND tablename NOT IN ('usuarios', 'escritorios')
+       AND tablename NOT ILIKE '%migrations%history%';
 
     IF v_tabelas IS NOT NULL THEN
         EXECUTE 'TRUNCATE TABLE ' || v_tabelas || ' RESTART IDENTITY';
