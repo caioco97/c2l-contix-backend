@@ -239,6 +239,8 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
 
+Atrás de proxy/ingress, informe as redes confiáveis em `ForwardedHeaders__RedesConfiaveis__0` (CIDR, ex.: `10.0.0.0/8`) para que o IP real do usuário apareça no histórico de auditoria dos documentos e no rate limit.
+
 ### Recuperação de senha
 
 - `POST /api/v1/auth/esqueci-senha` sempre responde **202**, exista ou não a conta (não revela e-mails cadastrados).

@@ -7,6 +7,7 @@ using Contix.Application.Common.Abstractions;
 using Contix.Application.Features.Documentos;
 using Contix.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -40,6 +41,16 @@ public static class ServiceCollectionExtensions
             .AllowAnyHeader()
             .AllowAnyMethod()
             .WithExposedHeaders("Content-Disposition", CorrelationIdMiddleware.Header)));
+
+        // IP real do cliente atrás do proxy (nginx do frontend), usado na auditoria e no rate limit.
+        // Só aceita X-Forwarded-For vindo das redes listadas em ForwardedHeaders:RedesConfiaveis (CIDR);
+        // sem configuração, apenas o loopback é confiável (padrão do ASP.NET Core).
+        services.Configure<ForwardedHeadersOptions>(o =>
+        {
+            o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            foreach (var rede in configuration.GetSection("ForwardedHeaders:RedesConfiaveis").Get<string[]>() ?? [])
+                o.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(rede));
+        });
 
         var limiteAuthPorMinuto = configuration.GetValue("RateLimit:AuthPorMinuto", 20);
         services.AddRateLimiter(o =>

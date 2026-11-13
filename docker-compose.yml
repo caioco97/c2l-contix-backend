@@ -44,6 +44,8 @@ services:
       Database__MigrateOnStartup: ${DB_MIGRATE_ON_STARTUP:-true}
       Database__SeedDemoData: ${DB_SEED_DEMO:-true}
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
+      # Proxies confiáveis para X-Forwarded-For (IP real na auditoria). A rede do Docker fica em 172.16.0.0/12.
+      ForwardedHeaders__RedesConfiaveis__0: ${PROXY_REDE_CONFIAVEL:-172.16.0.0/12}
       Notificacoes__UrlFrontend: ${FRONTEND_URL:-http://localhost:5173}
       # Chave AES-256 dos certificados A1 guardados no banco. Gere com: openssl rand -base64 32
       Criptografia__Chave: ${CRIPTOGRAFIA_CHAVE:?Defina CRIPTOGRAFIA_CHAVE no arquivo .env}

@@ -130,6 +130,7 @@ public sealed class DocumentoEventoConfiguration : IEntityTypeConfiguration<Docu
         b.ToTable("documento_eventos");
         b.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
         b.Property(x => x.Detalhe).HasMaxLength(500);
+        b.Property(x => x.Ip).HasMaxLength(DocumentoEvento.TamanhoMaximoIp);
         b.HasOne(x => x.Documento).WithMany(x => x.Eventos).HasForeignKey(x => x.DocumentoId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.DocumentoId, x.OcorridoEm });

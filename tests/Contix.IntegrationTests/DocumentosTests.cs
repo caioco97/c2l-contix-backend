@@ -120,6 +120,33 @@ public sealed class DocumentosTests(ContixApiFactory factory)
     }
 
     [Fact]
+    public async Task Historico_registra_o_ip_de_origem_de_cada_acao()
+    {
+        var admin = await LoginAsync("admin@contix.dev");
+        var cliente = await LoginAsync("cliente@contix.dev");
+        var (empresaId, pastas) = await EmpresaAsync(admin);
+        var docId = await UploadAsync(admin, empresaId, pastas["Fiscal"], $"guia-{Guid.NewGuid():N}.pdf");
+
+        // O nginx do frontend repassa o IP real em X-Forwarded-For; o proxy local (loopback) é confiável.
+        using var download = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/empresas/{empresaId}/documentos/{docId}/download");
+        download.Headers.Add("X-Forwarded-For", "203.0.113.45");
+        Assert.Equal(HttpStatusCode.OK, (await cliente.SendAsync(download)).StatusCode);
+
+        using var envio = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/empresas/{empresaId}/documentos/enviar")
+        {
+            Content = JsonContent.Create(new { documentoIds = new[] { docId } })
+        };
+        envio.Headers.Add("X-Forwarded-For", "2001:db8::7");
+        Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(envio)).StatusCode);
+
+        var historico = (await JsonAsync(await admin.GetAsync($"/api/v1/empresas/{empresaId}/documentos/{docId}/historico"))).AsArray();
+        string? Ip(string tipo) => historico.First(e => e!["tipo"]!.GetValue<string>() == tipo)!["ip"]?.GetValue<string>();
+        Assert.Equal("203.0.113.45", Ip("Download"));
+        Assert.Equal("2001:db8::7", Ip("Envio"));
+        Assert.True(historico.All(e => e!.AsObject().ContainsKey("ip")));
+    }
+
+    [Fact]
     public async Task Documento_do_cliente_tem_o_escritorio_como_destinatario_e_exclusao_fica_no_historico()
     {
         var admin = await LoginAsync("admin@contix.dev");

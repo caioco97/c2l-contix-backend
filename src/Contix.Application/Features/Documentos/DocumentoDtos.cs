@@ -40,7 +40,7 @@ public sealed record AcessosDocumentoDto(
 
 /// <summary>Item do histórico (auditoria) de um documento.</summary>
 public sealed record EventoDocumentoDto(
-    Guid Id, TipoEventoDocumento Tipo, DateTime OcorridoEm, Guid UsuarioId, string UsuarioNome, bool EhDoEscritorio, string? Detalhe);
+    Guid Id, TipoEventoDocumento Tipo, DateTime OcorridoEm, Guid UsuarioId, string UsuarioNome, bool EhDoEscritorio, string? Detalhe, string? Ip = null);
 
 /// <summary>Resumo bruto das interações por usuário, calculado no banco.</summary>
 public sealed record InteracaoUsuarioDocumento(
