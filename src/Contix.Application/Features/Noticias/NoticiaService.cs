@@ -168,7 +168,7 @@ public sealed class NoticiaService(
         var (empresa, noticia) = await CarregarVisivelAsync(empresaId, noticiaId, ct);
         var lidaEm = await noticias.ObterLeituraAsync(noticia.Id, empresa.Id, currentUser.RequireUserId(), ct);
         return new NoticiaPortalDetalheDto(
-            noticia.Id, noticia.Titulo, Resumir(noticia.Resumo ?? noticia.Conteudo), noticia.Conteudo, noticia.PublicarEm,
+            noticia.Id, noticia.Titulo, Resumir(noticia.Resumo ?? noticia.Conteudo), ConteudoNoticia.ParaExibir(noticia.Conteudo), noticia.PublicarEm,
             noticia.ImagemStorageKey is not null, ToAnexosDto(noticia), lidaEm is not null, lidaEm);
     }
 
@@ -193,9 +193,10 @@ public sealed class NoticiaService(
 
     /* ---------- Auxiliares ---------- */
 
-    /// <summary>Texto do resumo: o informado ou o início do conteúdo, cortado em uma palavra inteira.</summary>
+    /// <summary>Texto do resumo: o informado ou o início do conteúdo (sem HTML), cortado em uma palavra inteira.</summary>
     public static string Resumir(string? texto)
     {
+        texto = ConteudoNoticia.ParaTexto(texto);
         if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
         var limpo = string.Join(' ', texto.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         if (limpo.Length <= TamanhoResumoAutomatico) return limpo;
@@ -221,7 +222,7 @@ public sealed class NoticiaService(
     {
         noticia.Titulo = command.Titulo.Trim();
         noticia.Resumo = string.IsNullOrWhiteSpace(command.Resumo) ? null : command.Resumo.Trim();
-        noticia.Conteudo = command.Conteudo.Trim();
+        noticia.Conteudo = ConteudoNoticia.ParaGravar(command.Conteudo);
         noticia.DefinirPeriodo(command.PublicarEm?.ToUniversalTime() ?? clock.UtcNow, command.ExpiraEm?.ToUniversalTime());
         noticia.DefinirPublico(command.Publico, command.EmpresaIds, command.Regimes);
     }
@@ -299,7 +300,7 @@ public sealed class NoticiaService(
             .Select(a => new NoticiaAnexoDto(a.Id, a.NomeArquivo, a.ContentType, a.TamanhoBytes)).ToList();
 
     private NoticiaDto ToDto(Noticia n) => new(
-        n.Id, n.Titulo, n.Resumo, n.Conteudo, n.PublicarEm, n.ExpiraEm, n.Situacao(clock.UtcNow), n.Publico, n.Regimes,
+        n.Id, n.Titulo, n.Resumo, ConteudoNoticia.ParaGravar(n.Conteudo), n.PublicarEm, n.ExpiraEm, n.Situacao(clock.UtcNow), n.Publico, n.Regimes,
         n.Empresas.Select(v => new EmpresaRefDto(v.EmpresaId, v.Empresa?.NomeFantasia ?? v.Empresa?.RazaoSocial ?? ""))
             .OrderBy(e => e.Nome).ToList(),
         n.ImagemStorageKey is not null, ToAnexosDto(n), n.AutorId, n.Autor?.Nome ?? "", n.CreatedAt, n.UpdatedAt);
