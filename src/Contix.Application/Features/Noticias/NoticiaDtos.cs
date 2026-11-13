@@ -72,7 +72,11 @@ public sealed class SalvarNoticiaCommandValidator : AbstractValidator<SalvarNoti
     {
         RuleFor(x => x.Titulo).NotEmpty().WithName("Título").MaximumLength(200);
         RuleFor(x => x.Resumo).MaximumLength(500);
-        RuleFor(x => x.Conteudo).NotEmpty().WithName("Conteúdo").MaximumLength(20_000);
+        RuleFor(x => x.Conteudo).NotEmpty().WithName("Conteúdo")
+            .Must(c => !string.IsNullOrWhiteSpace(ConteudoNoticia.ParaTexto(ConteudoNoticia.ParaGravar(c))))
+            .WithMessage("Escreva o conteúdo.")
+            .Must(c => ConteudoNoticia.ParaGravar(c).Length <= ConteudoNoticia.TamanhoMaximo)
+            .WithMessage($"O conteúdo, com a formatação, pode ter no máximo {ConteudoNoticia.TamanhoMaximo:N0} caracteres.");
         RuleFor(x => x.Publico).IsInEnum();
         RuleForEach(x => x.Regimes).IsInEnum();
         RuleFor(x => x.EmpresaIds).Must(e => e.Count <= 1000).WithMessage("Selecione no máximo 1000 empresas.");

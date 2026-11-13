@@ -80,6 +80,8 @@ public sealed class NoticiasCertidoesTests(ContixApiFactory factory)
 
         var detalhe = await JsonAsync(await cliente.GetAsync($"/api/v1/empresas/{empresaId}/noticias/{noticiaId}"));
         Assert.False(detalhe["lida"]!.GetValue<bool>());
+        // Texto simples é gravado como parágrafos HTML.
+        Assert.Equal("<p>Primeiro parágrafo.</p><p>Segundo parágrafo.</p>", detalhe["conteudo"]!.GetValue<string>());
         Assert.Equal("png", await (await cliente.GetAsync($"/api/v1/empresas/{empresaId}/noticias/{noticiaId}/imagem")).Content.ReadAsStringAsync());
         Assert.Equal("conteudo-anexo", await (await cliente.GetAsync(
             $"/api/v1/empresas/{empresaId}/noticias/{noticiaId}/anexos/{anexoId}/download")).Content.ReadAsStringAsync());
@@ -118,6 +120,39 @@ public sealed class NoticiasCertidoesTests(ContixApiFactory factory)
 
         Assert.Equal(HttpStatusCode.NoContent, (await colaborador.DeleteAsync($"/api/v1/noticias/{noticiaId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await cliente.GetAsync($"/api/v1/empresas/{empresaId}/noticias/{noticiaId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Conteudo_em_html_e_sanitizado_e_resumo_sai_sem_tags()
+    {
+        var colaborador = await LoginAsync("colaborador@contix.dev");
+        var cliente = await LoginAsync("cliente@contix.dev");
+        var empresaId = await EmpresaDemoAsync(cliente);
+
+        var html = "<h2>Prazo</h2><p>Envie <strong>até sexta</strong>. <a href=\"javascript:alert(1)\">x</a> "
+                   + "<a href=\"https://gov.br\">gov</a></p><script>alert(1)</script><img src=x onerror=alert(1)>";
+        var criada = await JsonAsync(await colaborador.PostAsync("/api/v1/noticias", new MultipartFormDataContent
+        {
+            { new StringContent("Comunicado em HTML"), "titulo" }, { new StringContent(html), "conteudo" },
+            { new StringContent("Todos"), "publico" }
+        }));
+        var noticiaId = criada["id"]!.GetValue<string>();
+        Assert.Equal("<h2>Prazo</h2><p>Envie <strong>até sexta</strong>. <a>x</a> <a href=\"https://gov.br\">gov</a></p>",
+            criada["conteudo"]!.GetValue<string>());
+
+        var detalhe = await JsonAsync(await cliente.GetAsync($"/api/v1/empresas/{empresaId}/noticias/{noticiaId}"));
+        var conteudo = detalhe["conteudo"]!.GetValue<string>();
+        Assert.Contains("<a href=\"https://gov.br\" target=\"_blank\" rel=\"noopener noreferrer nofollow\">gov</a>", conteudo);
+        Assert.DoesNotContain("script", conteudo);
+        Assert.DoesNotContain("javascript", conteudo);
+        Assert.Equal("Prazo Envie até sexta. x gov", detalhe["resumo"]!.GetValue<string>());
+
+        var semTexto = await colaborador.PostAsync("/api/v1/noticias", new MultipartFormDataContent
+        {
+            { new StringContent("Vazia"), "titulo" }, { new StringContent("<p><br></p>"), "conteudo" },
+            { new StringContent("Todos"), "publico" }
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, semTexto.StatusCode);
     }
 
     [Fact]
