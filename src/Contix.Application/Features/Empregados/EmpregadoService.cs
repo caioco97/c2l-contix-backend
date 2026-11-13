@@ -89,7 +89,7 @@ public sealed class EmpregadoService(
         e.DataAdmissao = r.DataAdmissao;
         e.DataDesligamento = r.Situacao == SituacaoEmpregado.Desligado ? r.DataDesligamento : null;
         e.Email = Limpar(r.Email)?.ToLowerInvariant();
-        e.Telefone = Limpar(r.Telefone);
+        e.Telefone = DadosBrasileiros.NormalizarTelefone(r.Telefone);
     }
 
     private static string? Limpar(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();

@@ -37,7 +37,7 @@ public sealed class DbInitializer(
             Cnpj = "11222333000181",
             Crc = "SP-000000/O-0",
             Email = "contato@contix.dev",
-            Telefone = "(11) 4000-0000"
+            Telefone = "1140000000"
         };
 
         Usuario NovoUsuario(string nome, string email, PerfilUsuario perfil) => new()

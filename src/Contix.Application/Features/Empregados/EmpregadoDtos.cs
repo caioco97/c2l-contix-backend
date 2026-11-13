@@ -1,3 +1,4 @@
+using Contix.Application.Common.Validation;
 using Contix.Domain.Entities;
 using Contix.Domain.Enums;
 using Contix.Domain.ValueObjects;
@@ -47,6 +48,6 @@ public sealed class SalvarEmpregadoRequestValidator : AbstractValidator<SalvarEm
             .When(x => x.DataAdmissao is not null && x.DataDesligamento is not null)
             .WithMessage("O desligamento deve ser igual ou posterior à admissão.");
         RuleFor(x => x.Email).EmailAddress().MaximumLength(200).When(x => !string.IsNullOrWhiteSpace(x.Email));
-        RuleFor(x => x.Telefone).MaximumLength(30);
+        RuleFor(x => x.Telefone).MaximumLength(30).Telefone();
     }
 }

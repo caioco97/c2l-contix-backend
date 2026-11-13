@@ -204,7 +204,7 @@ public sealed class SolicitacaoService(
                     TenantId = s.TenantId, EmpresaId = s.EmpresaId, Nome = pessoa.Nome.Trim(), Cpf = cpf,
                     Cargo = pessoa.Cargo?.Trim(), DataAdmissao = pessoa.DataAdmissao,
                     Email = string.IsNullOrWhiteSpace(pessoa.Email) ? null : pessoa.Email.Trim().ToLowerInvariant(),
-                    Telefone = string.IsNullOrWhiteSpace(pessoa.Telefone) ? null : pessoa.Telefone.Trim(),
+                    Telefone = DadosBrasileiros.NormalizarTelefone(pessoa.Telefone),
                     Vinculo = s.Tipo switch
                     {
                         TipoSolicitacao.CadastroContribuinte => VinculoEmpregado.Contribuinte,

@@ -88,6 +88,30 @@ public class FormulariosSolicitacaoTests
     }
 
     [Fact]
+    public void Cadastro_de_empregado_guarda_documentos_e_contatos_sem_mascara()
+    {
+        const string json = """{"nome":"Ana","cpf":"529.982.247-25","pis":"120.69870.68-7","telefone":"+55 (11) 91234-5678","dataNascimento":"1990-01-01","cargo":"Analista","salario":3000,"jornada":"44h","dataAdmissao":"2026-12-01","endereco":{"cep":"01310-100","uf":"sp","cidade":" São Paulo "}}""";
+        var r = FormulariosSolicitacao.Processar(TipoSolicitacao.CadastroEmpregado, json);
+
+        var dados = JsonDocument.Parse(r.DadosJson!).RootElement;
+        Assert.Equal("52998224725", dados.GetProperty("cpf").GetString());
+        Assert.Equal("12069870687", dados.GetProperty("pis").GetString());
+        Assert.Equal("11912345678", dados.GetProperty("telefone").GetString());
+        var endereco = dados.GetProperty("endereco");
+        Assert.Equal("01310100", endereco.GetProperty("cep").GetString());
+        Assert.Equal("SP", endereco.GetProperty("uf").GetString());
+        Assert.Equal("São Paulo", endereco.GetProperty("cidade").GetString());
+    }
+
+    [Fact]
+    public void Cadastro_de_empregado_valida_pis_telefone_cep_e_uf()
+    {
+        const string json = """{"nome":"Ana","cpf":"529.982.247-25","pis":"120.69870.68-6","telefone":"(11) 81234-5678","dataNascimento":"1990-01-01","cargo":"Analista","salario":3000,"jornada":"44h","dataAdmissao":"2026-12-01","endereco":{"cep":"0131010","uf":"XX"}}""";
+        var erros = Erros(() => FormulariosSolicitacao.Processar(TipoSolicitacao.CadastroEmpregado, json));
+        Assert.Equal(["dados.pis", "dados.telefone", "dados.endereco.cep", "dados.endereco.uf"], erros);
+    }
+
+    [Fact]
     public void Cadastro_de_estagiario_exige_dados_do_curso()
     {
         const string json = """{"nome":"Ana","cpf":"529.982.247-25","dataNascimento":"2004-01-01","cargo":"Estagiária","salario":1200,"jornada":"6h","dataAdmissao":"2026-12-01"}""";

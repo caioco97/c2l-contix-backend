@@ -107,7 +107,7 @@ public static class FormulariosSolicitacao
         {
             TipoSolicitacao.Geral => new Resultado(null, nome),
             TipoSolicitacao.CadastroEmpregado or TipoSolicitacao.CadastroContribuinte or TipoSolicitacao.CadastroEstagiario =>
-                Validar(dadosJson, ValidadorCadastro(tipo), d => d, d => $"{nome} - {d.Nome.Trim()}"),
+                Validar(dadosJson, ValidadorCadastro(tipo), NormalizarCadastro, d => $"{nome} - {d.Nome.Trim()}"),
             TipoSolicitacao.AvisoFerias or TipoSolicitacao.CalculoFerias =>
                 Validar(dadosJson, ValidadorFerias(cadastro), d => d with { Empregado = NomeDe(d.EmpregadoId) },
                     d => $"{nome} - {d.Empregado}", d => d.EmpregadoId),
@@ -163,13 +163,22 @@ public static class FormulariosSolicitacao
 
     private static string Limitar(string texto, int max) => texto.Length <= max ? texto : texto[..max];
 
+    /// <summary>Guarda CPF, PIS, telefone e CEP somente com dígitos.</summary>
+    private static DadosCadastroPessoa NormalizarCadastro(DadosCadastroPessoa d) => d with
+    {
+        Cpf = DocumentoFiscal.SomenteDigitos(d.Cpf),
+        Pis = DadosBrasileiros.NormalizarPis(d.Pis),
+        Telefone = DadosBrasileiros.NormalizarTelefone(d.Telefone),
+        Endereco = d.Endereco?.Normalizar()
+    };
+
     private static InlineValidator<DadosCadastroPessoa> ValidadorCadastro(TipoSolicitacao tipo)
     {
         var v = new InlineValidator<DadosCadastroPessoa>();
         v.RuleFor(x => x.Nome).NotEmpty().WithName("Nome").MaximumLength(150);
         v.RuleFor(x => x.Cpf).NotEmpty().WithName("CPF").Must(DocumentoFiscal.CpfValido).WithMessage("CPF inválido.");
-        v.RuleFor(x => x.Pis).Matches(@"^\d{3}\.?\d{5}\.?\d{2}-?\d$").When(x => !string.IsNullOrWhiteSpace(x.Pis))
-            .WithMessage("PIS inválido.");
+        v.RuleFor(x => x.Pis).Pis();
+        v.RuleFor(x => x.Telefone).Telefone();
         v.RuleFor(x => x.DataNascimento).NotEmpty().WithName("Data de nascimento");
         v.RuleFor(x => x.Email).EmailAddress().When(x => !string.IsNullOrWhiteSpace(x.Email));
         v.RuleFor(x => x.Endereco!).SetValidator(new EnderecoValidator()).When(x => x.Endereco is not null);
