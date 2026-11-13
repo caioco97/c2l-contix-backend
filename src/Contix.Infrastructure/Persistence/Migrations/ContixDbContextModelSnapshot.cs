@@ -141,6 +141,108 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("certidoes", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.CertificadoDigital", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("ArquivoCriptografado")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("arquivo_criptografado");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Documento")
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)")
+                        .HasColumnName("documento");
+
+                    b.Property<string>("Emissor")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("emissor");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<Guid?>("EnviadoPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("enviado_por_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("NomeArquivo")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("nome_arquivo");
+
+                    b.Property<string>("NumeroSerie")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("numero_serie");
+
+                    b.Property<byte[]>("SenhaCriptografada")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("senha_criptografada");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Thumbprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("thumbprint");
+
+                    b.Property<string>("Titular")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("titular");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateTime>("ValidoAte")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valido_ate");
+
+                    b.Property<DateTime>("ValidoDe")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("valido_de");
+
+                    b.HasKey("Id")
+                        .HasName("pk_certificados_digitais");
+
+                    b.HasIndex("EmpresaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_certificados_digitais_empresa_id")
+                        .HasFilter("is_deleted = false");
+
+                    b.HasIndex("EnviadoPorId")
+                        .HasDatabaseName("ix_certificados_digitais_enviado_por_id");
+
+                    b.ToTable("certificados_digitais", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.ConfiguracaoEmissaoCertidao", b =>
                 {
                     b.Property<Guid>("Id")
@@ -858,6 +960,163 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("escritorios", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.NotaFiscal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ChaveAcesso")
+                        .IsRequired()
+                        .HasMaxLength(44)
+                        .HasColumnType("character(44)")
+                        .HasColumnName("chave_acesso")
+                        .IsFixedLength();
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime>("DataEmissao")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_emissao");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("DestinatarioDocumento")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)")
+                        .HasColumnName("destinatario_documento");
+
+                    b.Property<string>("EmitenteDocumento")
+                        .IsRequired()
+                        .HasMaxLength(14)
+                        .HasColumnType("character varying(14)")
+                        .HasColumnName("emitente_documento");
+
+                    b.Property<string>("EmitenteIe")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("emitente_ie");
+
+                    b.Property<string>("EmitenteNome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("emitente_nome");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("JustificativaManifestacao")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("justificativa_manifestacao");
+
+                    b.Property<string>("Manifestacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("manifestacao");
+
+                    b.Property<DateTime?>("ManifestadaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("manifestada_em");
+
+                    b.Property<Guid?>("ManifestadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manifestada_por_id");
+
+                    b.Property<int>("Modelo")
+                        .HasColumnType("integer")
+                        .HasColumnName("modelo");
+
+                    b.Property<long?>("Nsu")
+                        .HasColumnType("bigint")
+                        .HasColumnName("nsu");
+
+                    b.Property<long>("Numero")
+                        .HasColumnType("bigint")
+                        .HasColumnName("numero");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("origem");
+
+                    b.Property<string>("Protocolo")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("protocolo");
+
+                    b.Property<string>("ProtocoloManifestacao")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("protocolo_manifestacao");
+
+                    b.Property<int>("Serie")
+                        .HasColumnType("integer")
+                        .HasColumnName("serie");
+
+                    b.Property<string>("Situacao")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("situacao");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int?>("TipoOperacao")
+                        .HasColumnType("integer")
+                        .HasColumnName("tipo_operacao");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<decimal>("ValorTotal")
+                        .HasPrecision(15, 2)
+                        .HasColumnType("numeric(15,2)")
+                        .HasColumnName("valor_total");
+
+                    b.Property<bool>("XmlCompleto")
+                        .HasColumnType("boolean")
+                        .HasColumnName("xml_completo");
+
+                    b.Property<string>("XmlStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("xml_storage_key");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notas_fiscais");
+
+                    b.HasIndex("ManifestadaPorId")
+                        .HasDatabaseName("ix_notas_fiscais_manifestada_por_id");
+
+                    b.HasIndex("EmpresaId", "ChaveAcesso")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notas_fiscais_empresa_id_chave_acesso")
+                        .HasFilter("is_deleted = false");
+
+                    b.HasIndex("TenantId", "EmpresaId", "DataEmissao")
+                        .HasDatabaseName("ix_notas_fiscais_tenant_id_empresa_id_data_emissao");
+
+                    b.ToTable("notas_fiscais", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Noticia", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1278,6 +1537,93 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_refresh_tokens_usuario_id");
 
                     b.ToTable("refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.SincronizacaoNFe", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativa");
+
+                    b.Property<bool>("CienciaAutomatica")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ciencia_automatica");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int>("DocumentosRecebidos")
+                        .HasColumnType("integer")
+                        .HasColumnName("documentos_recebidos");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<long>("MaxNsu")
+                        .HasColumnType("bigint")
+                        .HasColumnName("max_nsu");
+
+                    b.Property<DateTime?>("ProximaConsultaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("proxima_consulta_em");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTime?>("UltimaConsultaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ultima_consulta_em");
+
+                    b.Property<bool>("UltimaConsultaFalhou")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ultima_consulta_falhou");
+
+                    b.Property<string>("UltimaMensagem")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ultima_mensagem");
+
+                    b.Property<long>("UltimoNsu")
+                        .HasColumnType("bigint")
+                        .HasColumnName("ultimo_nsu");
+
+                    b.Property<string>("UltimoStatus")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("ultimo_status");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sincronizacoes_nfe");
+
+                    b.HasIndex("EmpresaId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sincronizacoes_nfe_empresa_id")
+                        .HasFilter("is_deleted = false");
+
+                    b.HasIndex("Ativa", "ProximaConsultaEm")
+                        .HasDatabaseName("ix_sincronizacoes_nfe_ativa_proxima_consulta_em");
+
+                    b.ToTable("sincronizacoes_nfe", (string)null);
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Solicitacao", b =>
@@ -1938,6 +2284,26 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Empresa");
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.CertificadoDigital", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_certificados_digitais_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "EnviadoPor")
+                        .WithMany()
+                        .HasForeignKey("EnviadoPorId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_certificados_digitais_usuarios_enviado_por_id");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("EnviadoPor");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.ConfiguracaoEmissaoCertidao", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
@@ -2194,6 +2560,26 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Endereco");
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.NotaFiscal", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_notas_fiscais_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "ManifestadaPor")
+                        .WithMany()
+                        .HasForeignKey("ManifestadaPorId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_notas_fiscais_usuarios_manifestada_por_id");
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("ManifestadaPor");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Noticia", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Usuario", "Autor")
@@ -2327,6 +2713,18 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_refresh_tokens_usuarios_usuario_id");
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.SincronizacaoNFe", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sincronizacoes_nfe_empresas_empresa_id");
+
+                    b.Navigation("Empresa");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.Solicitacao", b =>

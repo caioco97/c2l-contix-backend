@@ -36,6 +36,9 @@ public class ContixDbContext(DbContextOptions<ContixDbContext> options, ICurrent
     public DbSet<Certidao> Certidoes => Set<Certidao>();
     public DbSet<ConfiguracaoEmissaoCertidao> ConfiguracoesEmissaoCertidao => Set<ConfiguracaoEmissaoCertidao>();
     public DbSet<EmissaoCertidao> EmissoesCertidao => Set<EmissaoCertidao>();
+    public DbSet<NotaFiscal> NotasFiscais => Set<NotaFiscal>();
+    public DbSet<CertificadoDigital> CertificadosDigitais => Set<CertificadoDigital>();
+    public DbSet<SincronizacaoNFe> SincronizacoesNFe => Set<SincronizacaoNFe>();
 
     /// <summary>
     /// Tenant da requisição. Avaliado a cada consulta pelo filtro global.

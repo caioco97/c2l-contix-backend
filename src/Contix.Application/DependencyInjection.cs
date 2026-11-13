@@ -7,6 +7,7 @@ using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Noticias;
+using Contix.Application.Features.NotasFiscais;
 using Contix.Application.Features.Pastas;
 using Contix.Application.Features.Solicitacoes;
 using Contix.Application.Features.Tarefas;
@@ -46,6 +47,11 @@ public static class DependencyInjection
         services.AddScoped<ICertidaoService, CertidaoService>();
         services.AddScoped<IEmissaoCertidaoService, EmissaoCertidaoService>();
         services.AddScoped<IProcessadorEmissaoCertidao, ProcessadorEmissaoCertidao>();
+        services.AddScoped<IConsultaCnpjService, ConsultaCnpjService>();
+        services.AddScoped<RegistroNotasFiscais>();
+        services.AddScoped<INotaFiscalService, NotaFiscalService>();
+        services.AddScoped<IIntegracaoSefazService, IntegracaoSefazService>();
+        services.AddScoped<IProcessadorSincronizacaoNFe, ProcessadorSincronizacaoNFe>();
         return services;
     }
 }

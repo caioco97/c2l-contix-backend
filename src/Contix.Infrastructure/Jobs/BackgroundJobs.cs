@@ -1,5 +1,7 @@
 using Contix.Application.Features.Certidoes.Emissao;
 using Contix.Application.Features.Notificacoes;
+using Contix.Application.Features.NotasFiscais;
+using Contix.Infrastructure.NotasFiscais;
 using Contix.Infrastructure.Certidoes;
 using Contix.Infrastructure.Email;
 using Microsoft.Extensions.DependencyInjection;
@@ -97,5 +99,37 @@ public sealed class EmissaoCertidaoJob(
         }
         await using (var scope = scopeFactory.CreateAsyncScope())
             await scope.ServiceProvider.GetRequiredService<IProcessadorEmissaoCertidao>().ProcessarFilaAsync(ct);
+    }
+}
+
+/// <summary>Busca automática de NF-e na SEFAZ (Distribuição DF-e) das empresas com a busca ligada.</summary>
+public sealed class SincronizacaoNFeJob(
+    IServiceScopeFactory scopeFactory, IOptions<SefazOptions> options, ILogger<SincronizacaoNFeJob> logger)
+    : JobPeriodico(logger)
+{
+    protected override bool Habilitado => options.Value.ProcessarFila
+        && !string.Equals(options.Value.Provider, "Desabilitado", StringComparison.OrdinalIgnoreCase);
+    protected override TimeSpan Intervalo => TimeSpan.FromMinutes(Math.Max(1, options.Value.IntervaloMinutos));
+
+    protected override async Task ExecutarUmaVezAsync(CancellationToken ct)
+    {
+        IReadOnlyList<Guid> prontas;
+        await using (var scope = scopeFactory.CreateAsyncScope())
+            prontas = await scope.ServiceProvider.GetRequiredService<IProcessadorSincronizacaoNFe>().ListarProntasAsync(ct);
+
+        // Um escopo por empresa: a falha de uma não afeta as outras.
+        foreach (var id in prontas)
+        {
+            if (ct.IsCancellationRequested) break;
+            try
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<IProcessadorSincronizacaoNFe>().ProcessarAsync(id, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                logger.LogError(ex, "Falha na busca de NF-e da sincronização {SincronizacaoId}", id);
+            }
+        }
     }
 }
