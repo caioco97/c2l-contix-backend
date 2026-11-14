@@ -10,7 +10,10 @@ namespace Contix.Infrastructure.Planilhas;
 /// <summary>Planilhas simples: .xlsx (OpenXML, leitura em streaming) e CSV (";" ou ",", UTF-8 ou Latin-1).</summary>
 public sealed class PlanilhaService : IPlanilhaService
 {
-    public IReadOnlyList<IReadOnlyList<string>> Ler(Stream conteudo, FormatoPlanilha formato, int maxLinhas)
+    /// <summary>Colunas lidas por linha; as demais são ignoradas (o modelo tem 6).</summary>
+    public const int MaxColunas = 50;
+
+    public IReadOnlyList<LinhaPlanilha> Ler(Stream conteudo, FormatoPlanilha formato, int maxLinhas)
     {
         // O OpenXML precisa de stream com seek; o arquivo já é pequeno (limite de tamanho no serviço).
         using var buffer = new MemoryStream();
@@ -22,7 +25,7 @@ public sealed class PlanilhaService : IPlanilhaService
     public byte[] Gerar(IReadOnlyList<string> cabecalho, IEnumerable<IReadOnlyList<string>> linhas, FormatoPlanilha formato, string nomeAba) =>
         formato == FormatoPlanilha.Xlsx ? GerarXlsx(cabecalho, linhas, nomeAba) : GerarCsv(cabecalho, linhas);
 
-    private static List<IReadOnlyList<string>> LerXlsx(Stream stream, int maxLinhas)
+    private static List<LinhaPlanilha> LerXlsx(Stream stream, int maxLinhas)
     {
         SpreadsheetDocument doc;
         try { doc = SpreadsheetDocument.Open(stream, false); }
@@ -38,28 +41,37 @@ public sealed class PlanilhaService : IPlanilhaService
             var aba = (WorksheetPart)wb.GetPartById(primeira.Id!);
             var compartilhadas = wb.SharedStringTablePart?.SharedStringTable.Elements<SharedStringItem>().Select(i => i.InnerText).ToArray() ?? [];
 
-            var resultado = new List<IReadOnlyList<string>>();
+            var resultado = new List<LinhaPlanilha>();
+            var ultimaLinha = 0;
             using var reader = OpenXmlReader.Create(aba);
             while (reader.Read())
             {
                 if (reader.ElementType != typeof(Row) || !reader.IsStartElement) continue;
                 var row = (Row)reader.LoadCurrentElement()!;
+                // O número da linha só é guardado (para as mensagens de erro): linhas vazias não ocupam memória nem o limite.
+                ultimaLinha = row.RowIndex?.Value is uint r and > 0 and <= int.MaxValue ? (int)r : ultimaLinha + 1;
                 var celulas = new List<string>();
                 foreach (var c in row.Elements<Cell>())
                 {
                     var col = IndiceColuna(c.CellReference?.Value);
                     if (col < 0) col = celulas.Count;
+                    if (col >= MaxColunas) continue;
                     while (celulas.Count < col) celulas.Add("");
-                    celulas.Add(Valor(c, compartilhadas));
+                    if (col < celulas.Count) celulas[col] = Valor(c, compartilhadas);
+                    else celulas.Add(Valor(c, compartilhadas));
                 }
-                // Linhas vazias no meio contam para o número da linha exibido nos erros.
-                var numero = (int)(row.RowIndex?.Value ?? (uint)(resultado.Count + 1));
-                while (resultado.Count < numero - 1) resultado.Add([]);
-                resultado.Add(celulas);
-                if (resultado.Count > maxLinhas) break;
+                if (!Adicionar(resultado, ultimaLinha, celulas, maxLinhas)) break;
             }
             return resultado;
         }
+    }
+
+    /// <summary>Guarda a linha se tiver conteúdo. Devolve false ao passar do limite (quem chama recusa o arquivo, sem prévia parcial).</summary>
+    private static bool Adicionar(List<LinhaPlanilha> resultado, int numero, List<string> celulas, int maxLinhas)
+    {
+        if (celulas.TrueForAll(string.IsNullOrWhiteSpace)) return true;
+        resultado.Add(new LinhaPlanilha(numero, celulas));
+        return resultado.Count <= maxLinhas;
     }
 
     private static string Valor(Cell c, string[] compartilhadas)
@@ -78,13 +90,14 @@ public sealed class PlanilhaService : IPlanilhaService
         var n = 0;
         foreach (var ch in referencia)
         {
-            if (!char.IsLetter(ch)) break;
+            if (ch is not (>= 'A' and <= 'Z' or >= 'a' and <= 'z')) break;
             n = n * 26 + (char.ToUpperInvariant(ch) - 'A' + 1);
+            if (n > MaxColunas) return MaxColunas; // além do limite: ignorada, sem estouro
         }
         return n - 1;
     }
 
-    private static List<IReadOnlyList<string>> LerCsv(MemoryStream stream, int maxLinhas)
+    private static List<LinhaPlanilha> LerCsv(MemoryStream stream, int maxLinhas)
     {
         var bytes = stream.ToArray();
         string texto;
@@ -95,7 +108,8 @@ public sealed class PlanilhaService : IPlanilhaService
         var primeiraLinha = texto.Split('\n', 2)[0];
         var separador = primeiraLinha.Count(ch => ch == ';') >= primeiraLinha.Count(ch => ch == ',') ? ';' : ',';
 
-        var linhas = new List<IReadOnlyList<string>>();
+        var linhas = new List<LinhaPlanilha>();
+        var numero = 1;
         var atual = new List<string>();
         var campo = new StringBuilder();
         var aspas = false;
@@ -109,17 +123,23 @@ public sealed class PlanilhaService : IPlanilhaService
                 else campo.Append(ch);
             }
             else if (ch == '"') aspas = true;
-            else if (ch == separador) { atual.Add(campo.ToString()); campo.Clear(); }
+            else if (ch == separador) { if (atual.Count < MaxColunas) atual.Add(campo.ToString()); campo.Clear(); }
             else if (ch == '\n' || ch == '\r')
             {
                 if (ch == '\r' && i + 1 < texto.Length && texto[i + 1] == '\n') i++;
-                atual.Add(campo.ToString()); campo.Clear();
-                linhas.Add(atual); atual = [];
-                if (linhas.Count > maxLinhas) return linhas;
+                if (atual.Count < MaxColunas) atual.Add(campo.ToString());
+                campo.Clear();
+                if (!Adicionar(linhas, numero, atual, maxLinhas)) return linhas;
+                atual = [];
+                numero++;
             }
             else campo.Append(ch);
         }
-        if (campo.Length > 0 || atual.Count > 0) { atual.Add(campo.ToString()); linhas.Add(atual); }
+        if (campo.Length > 0 || atual.Count > 0)
+        {
+            if (atual.Count < MaxColunas) atual.Add(campo.ToString());
+            Adicionar(linhas, numero, atual, maxLinhas);
+        }
         return linhas;
     }
 

@@ -17,11 +17,17 @@ public enum FormatoPlanilha
     Csv = 2
 }
 
-/// <summary>Lê e gera planilhas simples (primeira aba; primeira linha = cabeçalho).</summary>
+/// <summary>Linha com conteúdo e o número dela no arquivo (base 1, como o Excel mostra).</summary>
+public sealed record LinhaPlanilha(int Numero, IReadOnlyList<string> Celulas);
+
+/// <summary>Lê e gera planilhas simples (primeira aba; primeira linha com conteúdo = cabeçalho).</summary>
 public interface IPlanilhaService
 {
-    /// <summary>Linhas da planilha (inclui o cabeçalho). Lança <see cref="FormatException"/> se o arquivo não for legível.</summary>
-    IReadOnlyList<IReadOnlyList<string>> Ler(Stream conteudo, FormatoPlanilha formato, int maxLinhas);
+    /// <summary>
+    /// Linhas com conteúdo (inclui o cabeçalho; as vazias são puladas e não contam no limite). Para de ler
+    /// ao passar de <paramref name="maxLinhas"/> (devolve maxLinhas + 1). Lança <see cref="FormatException"/> se o arquivo não for legível.
+    /// </summary>
+    IReadOnlyList<LinhaPlanilha> Ler(Stream conteudo, FormatoPlanilha formato, int maxLinhas);
     byte[] Gerar(IReadOnlyList<string> cabecalho, IEnumerable<IReadOnlyList<string>> linhas, FormatoPlanilha formato, string nomeAba);
 }
 
@@ -50,8 +56,8 @@ public sealed class ImportacaoRubricasService(
     public async Task<ArquivoParaDownload> ModeloAsync(Guid empresaId, FormatoPlanilha formato, CancellationToken ct = default)
     {
         await acesso.GarantirModuloAsync(empresaId, ModuloPortal.Solicitacoes, ct);
-        var ativos = await empregados.ListarAsync(empresaId, new EmpregadoFiltro { Ativos = true }, ct);
-        var linhas = ativos.OrderBy(e => e.Nome)
+        var ativos = await empregados.ListarAtivosAsync(empresaId, ct);
+        var linhas = ativos
             .Select(e => (IReadOnlyList<string>)[Cpf(e.Cpf), e.Matricula ?? "", e.Nome, "", "", ""])
             .DefaultIfEmpty(["000.000.000-00", "", "Nome do empregado", "Horas extras 50%", "10", ""]);
         var bytes = planilhas.Gerar(Cabecalho, linhas, formato, "Rubricas");
@@ -71,10 +77,11 @@ public sealed class ImportacaoRubricasService(
             _ => throw new DomainException("Envie a planilha em .xlsx ou .csv (use o modelo).")
         };
 
-        IReadOnlyList<IReadOnlyList<string>> linhas;
+        IReadOnlyList<LinhaPlanilha> linhas;
         try
         {
             await using var stream = arquivo.AbrirLeitura();
+            // Cabeçalho + MaxLinhas lançamentos; o leitor para logo depois do limite (nunca uma prévia parcial).
             linhas = planilhas.Ler(stream, formato, MaxLinhas + 1);
         }
         catch (FormatException ex)
@@ -83,22 +90,25 @@ public sealed class ImportacaoRubricasService(
         }
         if (linhas.Count == 0) throw new DomainException("A planilha está vazia.");
 
-        var colunas = MapearColunas(linhas[0]);
-        var dados = linhas.Skip(1).Select((l, i) => (Numero: i + 2, Celulas: l))
-            .Where(l => l.Celulas.Any(c => !string.IsNullOrWhiteSpace(c)))
-            .ToList();
+        var colunas = MapearColunas(linhas[0].Celulas);
+        var dados = linhas.Skip(1).ToList();
         if (dados.Count > MaxLinhas) throw new DomainException($"A planilha pode ter no máximo {MaxLinhas} lançamentos.");
 
-        var cadastro = await empregados.ListarAsync(empresaId, new EmpregadoFiltro(), ct);
+        // Só os empregados citados na planilha (no máximo 500 CPFs e 500 matrículas), sem teto de cadastro.
+        string Coluna(LinhaPlanilha l, string nome) => colunas.TryGetValue(nome, out var i) && i < l.Celulas.Count ? l.Celulas[i].Trim() : "";
+        var cpfs = dados.Select(l => DocumentoFiscal.SomenteDigitos(Coluna(l, "cpf"))).Where(c => c.Length > 0).Distinct().ToList();
+        var matriculas = dados.Select(l => Coluna(l, "matricula")).Where(m => m.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var cadastro = await empregados.ListarPorCpfsOuMatriculasAsync(empresaId, cpfs, matriculas, ct);
         var porCpf = cadastro.Where(e => !string.IsNullOrEmpty(e.Cpf)).GroupBy(e => DocumentoFiscal.SomenteDigitos(e.Cpf)).ToDictionary(g => g.Key, g => g.First());
         var porMatricula = cadastro.Where(e => !string.IsNullOrWhiteSpace(e.Matricula))
             .GroupBy(e => e.Matricula!.Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
         var validos = new List<LancamentoRubrica>();
         var erros = new List<ErroLinhaRubrica>();
-        foreach (var (numero, celulas) in dados)
+        foreach (var linha in dados)
         {
-            string Celula(string nome) => colunas.TryGetValue(nome, out var i) && i < celulas.Count ? celulas[i].Trim() : "";
+            var numero = linha.Numero;
+            string Celula(string nome) => Coluna(linha, nome);
             var errosDaLinha = new List<ErroLinhaRubrica>();
 
             var cpf = DocumentoFiscal.SomenteDigitos(Celula("cpf"));
