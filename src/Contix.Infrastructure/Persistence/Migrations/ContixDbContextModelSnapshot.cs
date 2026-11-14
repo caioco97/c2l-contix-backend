@@ -521,6 +521,9 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.HasIndex("EmpresaId", "DataVencimento")
                         .HasDatabaseName("ix_documentos_empresa_id_data_vencimento");
 
+                    b.HasIndex("TenantId", "PublicadoEm")
+                        .HasDatabaseName("ix_documentos_tenant_id_publicado_em");
+
                     b.HasIndex("TenantId", "EmpresaId", "PastaId")
                         .HasDatabaseName("ix_documentos_tenant_id_empresa_id_pasta_id");
 

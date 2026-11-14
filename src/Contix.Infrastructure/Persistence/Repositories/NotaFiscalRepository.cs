@@ -62,6 +62,9 @@ public sealed class NotaFiscalRepository(ContixDbContext context) : Repository<N
     public Task<NotaFiscal?> ObterAsync(Guid empresaId, Guid id, CancellationToken ct = default) =>
         Set.FirstOrDefaultAsync(n => n.EmpresaId == empresaId && n.Id == id, ct);
 
+    public async Task<IReadOnlyList<NotaFiscal>> ListarPorIdsAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
+        await Set.AsNoTracking().Where(n => n.EmpresaId == empresaId && ids.Contains(n.Id)).ToListAsync(ct);
+
     public async Task<NotaFiscal?> ObterPorChaveAsync(Guid empresaId, string chaveAcesso, bool ignorarTenant, CancellationToken ct = default)
     {
         // Inclui as notas adicionadas nesta mesma operação (ainda não salvas), ex.: resumo e cancelamento no mesmo lote.

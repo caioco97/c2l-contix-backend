@@ -49,6 +49,27 @@ public sealed class NotasFiscaisController(INotaFiscalService notas, IIntegracao
         return File(arquivo.Conteudo, arquivo.ContentType, arquivo.NomeArquivo);
     }
 
+    /// <summary>DANFE em PDF, gerado a partir do XML completo da nota.</summary>
+    [HttpGet("notas-fiscais/{notaId:guid}/danfe")]
+    [Produces("application/pdf", "application/json")]
+    [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> BaixarDanfe(Guid empresaId, Guid notaId, CancellationToken ct)
+    {
+        var arquivo = await notas.BaixarDanfeAsync(empresaId, notaId, ct);
+        return File(arquivo.Conteudo, arquivo.ContentType, arquivo.NomeArquivo);
+    }
+
+    /// <summary>XML e/ou DANFE das notas selecionadas em um .zip (até 500 notas). Conteudo: Xml, Danfe ou XmlEDanfe.</summary>
+    [HttpPost("notas-fiscais/download")]
+    [Produces("application/zip", "application/json")]
+    [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> BaixarLote(Guid empresaId, DownloadLoteNFeRequest request, CancellationToken ct)
+    {
+        var arquivo = await notas.BaixarLoteAsync(empresaId, request, ct);
+        return File(arquivo.Conteudo, arquivo.ContentType, arquivo.NomeArquivo);
+    }
+
     /// <summary>Importação manual de XMLs de NF-e (nfeProc). Responde o resultado de cada arquivo.</summary>
     [HttpPost("notas-fiscais/importacao")]
     [Authorize(Policy = Policies.Escritorio)]

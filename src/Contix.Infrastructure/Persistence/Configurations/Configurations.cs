@@ -120,6 +120,8 @@ public sealed class DocumentoConfiguration : IEntityTypeConfiguration<Documento>
         b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.PastaId });
         b.HasIndex(x => new { x.EmpresaId, x.DataVencimento });
         b.HasIndex(x => new { x.EmpresaId, x.Competencia });
+        // Painel e relatórios filtram por período de publicação.
+        b.HasIndex(x => new { x.TenantId, x.PublicadoEm });
         b.Property(x => x.Origem).HasConversion<string>().HasMaxLength(20);
     }
 }

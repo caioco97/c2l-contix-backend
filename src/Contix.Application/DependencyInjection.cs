@@ -7,6 +7,8 @@ using Contix.Application.Features.Empregados;
 using Contix.Application.Features.Empresas;
 using Contix.Application.Features.Equipe;
 using Contix.Application.Features.Obrigacoes;
+using Contix.Application.Features.Painel;
+using Contix.Application.Features.Relatorios;
 using Contix.Application.Features.Escritorios;
 using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Noticias;
@@ -44,6 +46,8 @@ public static class DependencyInjection
         services.AddScoped<IEquipeService, EquipeService>();
         services.AddScoped<IObrigacaoService, ObrigacaoService>();
         services.AddScoped<IGeradorTarefasObrigacao, GeradorTarefasObrigacao>();
+        services.AddScoped<IRelatorioService, RelatorioService>();
+        services.AddScoped<IPainelService, PainelService>();
         services.AddScoped<INotificador, Notificador>();
         services.AddScoped<IDispositivoService, DispositivoService>();
         services.AddScoped<INotificacaoService, NotificacaoService>();

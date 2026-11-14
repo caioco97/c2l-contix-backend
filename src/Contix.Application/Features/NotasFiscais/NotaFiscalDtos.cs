@@ -61,6 +61,23 @@ public interface INotaFiscalRepository : IRepository<NotaFiscal>
     Task<NotaFiscalDto?> ObterDtoAsync(Guid empresaId, Guid id, CancellationToken ct = default);
     /// <summary>Rastreada.</summary>
     Task<NotaFiscal?> ObterAsync(Guid empresaId, Guid id, CancellationToken ct = default);
+    Task<IReadOnlyList<NotaFiscal>> ListarPorIdsAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
     /// <summary>Rastreada. Com <paramref name="ignorarTenant"/> (job), busca fora do filtro de tenant.</summary>
     Task<NotaFiscal?> ObterPorChaveAsync(Guid empresaId, string chaveAcesso, bool ignorarTenant, CancellationToken ct = default);
 }
+
+/// <summary>Gera o DANFE em PDF a partir do XML autorizado (nfeProc).</summary>
+public interface IGeradorDanfe
+{
+    byte[] Gerar(string xmlNfeProc);
+}
+
+public enum ConteudoLoteNFe
+{
+    Xml = 1,
+    Danfe = 2,
+    XmlEDanfe = 3
+}
+
+/// <summary>Download em lote (.zip) de XML e/ou DANFE das notas selecionadas.</summary>
+public sealed record DownloadLoteNFeRequest(IReadOnlyList<Guid> NotaIds, ConteudoLoteNFe Conteudo = ConteudoLoteNFe.XmlEDanfe);

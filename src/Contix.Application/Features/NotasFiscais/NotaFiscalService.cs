@@ -22,6 +22,10 @@ public interface INotaFiscalService
     /// <summary>Registra a manifestação. Com certificado e integração, envia o evento à SEFAZ antes de gravar.</summary>
     Task<NotaFiscalDto> ManifestarAsync(Guid empresaId, Guid notaId, ManifestarNotaFiscalCommand command, CancellationToken ct = default);
     Task<ArquivoParaDownload> BaixarXmlAsync(Guid empresaId, Guid notaId, CancellationToken ct = default);
+    /// <summary>DANFE em PDF gerado do XML completo (exige a nota com XML completo).</summary>
+    Task<ArquivoParaDownload> BaixarDanfeAsync(Guid empresaId, Guid notaId, CancellationToken ct = default);
+    /// <summary>XML e/ou DANFE de várias notas em um .zip.</summary>
+    Task<ArquivoParaDownload> BaixarLoteAsync(Guid empresaId, DownloadLoteNFeRequest request, CancellationToken ct = default);
     /// <summary>Importação manual de XMLs (escritório).</summary>
     Task<ImportacaoNFeDto> ImportarAsync(Guid empresaId, IReadOnlyList<ArquivoImportacaoNFe> arquivos, CancellationToken ct = default);
 }
@@ -38,8 +42,11 @@ public sealed class NotaFiscalService(
     ICurrentUser currentUser,
     IDateTimeProvider clock,
     IValidator<ManifestarNotaFiscalCommand> validator,
+    IGeradorDanfe danfe,
     ILogger<NotaFiscalService> logger) : INotaFiscalService
 {
+    public const int MaximoNotasPorLote = 500;
+
     public const int MaximoArquivosImportacao = 100;
     public const long TamanhoMaximoXml = 5 * 1024 * 1024;
 
@@ -103,6 +110,77 @@ public sealed class NotaFiscalService(
         var stream = await storage.OpenReadAsync(nota.XmlStorageKey, ct);
         var sufixo = nota.XmlCompleto ? "-nfe" : "-resumo";
         return new ArquivoParaDownload(stream, "application/xml", $"{nota.ChaveAcesso}{sufixo}.xml");
+    }
+
+    public async Task<ArquivoParaDownload> BaixarDanfeAsync(Guid empresaId, Guid notaId, CancellationToken ct = default)
+    {
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.NFe, ct);
+        var nota = await notas.ObterAsync(empresaId, notaId, ct) ?? throw new NotFoundException("NF-e", notaId);
+        GarantirXmlCompleto(nota);
+        var pdf = danfe.Gerar(await LerXmlAsync(nota, ct));
+        return new ArquivoParaDownload(new MemoryStream(pdf), "application/pdf", $"{nota.ChaveAcesso}-danfe.pdf");
+    }
+
+    public async Task<ArquivoParaDownload> BaixarLoteAsync(Guid empresaId, DownloadLoteNFeRequest request, CancellationToken ct = default)
+    {
+        await acesso.GarantirModuloAsync(empresaId, ModuloPortal.NFe, ct);
+        var ids = (request.NotaIds ?? []).Distinct().ToList();
+        if (ids.Count == 0) throw new DomainException("Selecione ao menos uma nota.");
+        if (ids.Count > MaximoNotasPorLote) throw new DomainException($"Selecione no máximo {MaximoNotasPorLote} notas por download.");
+        var lista = await notas.ListarPorIdsAsync(empresaId, ids, ct);
+        if (lista.Count != ids.Count) throw new NotFoundException("Uma ou mais notas selecionadas");
+
+        var comXml = lista.Where(n => n.XmlStorageKey is not null).ToList();
+        if (comXml.Count == 0) throw new DomainException("Nenhuma das notas selecionadas tem XML disponível.");
+
+        // Arquivo temporário (apagado ao fechar o stream) em vez de memória: lotes grandes não pesam no servidor.
+        var zip = new FileStream(Path.Combine(Path.GetTempPath(), $"contix-nfe-{Guid.NewGuid():N}.zip"), FileMode.CreateNew,
+            FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.DeleteOnClose | FileOptions.Asynchronous);
+        try
+        {
+            using (var archive = new System.IO.Compression.ZipArchive(zip, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var nota in comXml.OrderBy(n => n.DataEmissao))
+                {
+                    var xml = await LerXmlAsync(nota, ct);
+                    var nome = $"{nota.DataEmissao:yyyyMMdd}-{nota.Numero}-{nota.ChaveAcesso}";
+                    if (request.Conteudo is ConteudoLoteNFe.Xml or ConteudoLoteNFe.XmlEDanfe)
+                    {
+                        var entry = archive.CreateEntry($"xml/{nome}{(nota.XmlCompleto ? "" : "-resumo")}.xml", System.IO.Compression.CompressionLevel.Fastest);
+                        await using var w = new StreamWriter(entry.Open());
+                        await w.WriteAsync(xml);
+                    }
+                    if (request.Conteudo is ConteudoLoteNFe.Danfe or ConteudoLoteNFe.XmlEDanfe && nota.XmlCompleto)
+                    {
+                        var entry = archive.CreateEntry($"danfe/{nome}.pdf", System.IO.Compression.CompressionLevel.NoCompression);
+                        await using var w = entry.Open();
+                        await w.WriteAsync(danfe.Gerar(xml), ct);
+                    }
+                }
+            }
+            zip.Position = 0;
+        }
+        catch
+        {
+            await zip.DisposeAsync();
+            throw;
+        }
+
+        logger.LogInformation("Download em lote de {Quantidade} NF-e da empresa {EmpresaId} ({Conteudo})", comXml.Count, empresaId, request.Conteudo);
+        return new ArquivoParaDownload(zip, "application/zip", $"nfe-{clock.UtcNow:yyyyMMddHHmmss}.zip");
+    }
+
+    private static void GarantirXmlCompleto(NotaFiscal nota)
+    {
+        if (nota.XmlStorageKey is null || !nota.XmlCompleto)
+            throw new DomainException("O DANFE só pode ser gerado com o XML completo da nota. Manifeste a ciência para a SEFAZ liberar o XML.");
+    }
+
+    private async Task<string> LerXmlAsync(NotaFiscal nota, CancellationToken ct)
+    {
+        await using var stream = await storage.OpenReadAsync(nota.XmlStorageKey!, ct);
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync(ct);
     }
 
     public async Task<ImportacaoNFeDto> ImportarAsync(Guid empresaId, IReadOnlyList<ArquivoImportacaoNFe> arquivos, CancellationToken ct = default)
