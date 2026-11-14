@@ -90,6 +90,7 @@ public static class DependencyInjection
         services.AddScoped<IPainelRepository, PainelRepository>();
         services.AddSingleton<IExportadorPdf, ExportadorPdf>();
         services.AddSingleton<IGeradorDanfe, GeradorDanfe>();
+        services.AddSingleton<Contix.Application.Features.Solicitacoes.IPlanilhaService, Contix.Infrastructure.Planilhas.PlanilhaService>();
         services.AddScoped<INotificacaoRepository, NotificacaoRepository>();
         services.AddScoped<ITokenRedefinicaoSenhaRepository, TokenRedefinicaoSenhaRepository>();
         services.AddScoped<INoticiaRepository, NoticiaRepository>();

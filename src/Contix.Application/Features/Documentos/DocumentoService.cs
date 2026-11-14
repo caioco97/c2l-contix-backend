@@ -124,10 +124,9 @@ public sealed class DocumentoService(
         logger.LogInformation("{Quantidade} documento(s) enviados para a pasta {PastaId} da empresa {EmpresaId}",
             salvos.Count, pasta.Id, empresaId);
 
-        var resultado = new List<DocumentoDto>(salvos.Count);
-        foreach (var d in salvos)
-            resultado.Add((await documentos.ObterDtoAsync(empresaId, d.Id, usuarioId, ct))!);
-        return resultado;
+        // Uma consulta para todos os arquivos (antes era uma por arquivo), na ordem do envio.
+        var dtos = (await documentos.ListarDtosAsync(empresaId, salvos.Select(d => d.Id).ToList(), usuarioId, ct)).ToDictionary(d => d.Id);
+        return salvos.Select(d => dtos[d.Id]).ToList();
     }
 
     public async Task<ArquivoParaDownload> BaixarAsync(Guid empresaId, Guid documentoId, CancellationToken ct = default)
@@ -153,27 +152,37 @@ public sealed class DocumentoService(
         if (docs.Count != ids.Count || (visiveis is not null && docs.Any(d => !visiveis.Contains(d.PastaId))))
             throw new NotFoundException("Um ou mais documentos selecionados");
 
-        var zip = new MemoryStream();
-        using (var archive = new ZipArchive(zip, ZipArchiveMode.Create, leaveOpen: true))
+        // Em arquivo temporário (apagado ao fechar): até 200 arquivos de 25 MB não cabem na memória com folga.
+        var zip = new FileStream(Path.Combine(Path.GetTempPath(), $"contix-docs-{Guid.NewGuid():N}.zip"), FileMode.CreateNew,
+            FileAccess.ReadWrite, FileShare.None, 81920, FileOptions.DeleteOnClose | FileOptions.Asynchronous);
+        try
         {
-            var nomesUsados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var doc in docs)
+            using (var archive = new ZipArchive(zip, ZipArchiveMode.Create, leaveOpen: true))
             {
-                var entry = archive.CreateEntry(NomeUnico(doc.NomeArquivoOriginal, nomesUsados), CompressionLevel.Fastest);
-                await using var origem = await storage.OpenReadAsync(doc.StorageKey, ct);
-                await using var destino = entry.Open();
-                await origem.CopyToAsync(destino, ct);
+                var nomesUsados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var doc in docs)
+                {
+                    var entry = archive.CreateEntry(NomeUnico(doc.NomeArquivoOriginal, nomesUsados), CompressionLevel.Fastest);
+                    await using var origem = await storage.OpenReadAsync(doc.StorageKey, ct);
+                    await using var destino = entry.Open();
+                    await origem.CopyToAsync(destino, ct);
+                }
             }
-        }
-        zip.Position = 0;
+            zip.Position = 0;
 
-        var usuarioId = currentUser.RequireUserId();
-        var agora = clock.UtcNow;
-        await documentos.MarcarComoLidosAsync(ids, usuarioId, agora, ct);
-        var detalhe = $"Download em lote ({ids.Count} arquivos)";
-        await documentos.RegistrarEventosAsync(
-            ids.Select(id => DocumentoEvento.Criar(id, TipoEventoDocumento.Download, usuarioId, agora, detalhe, currentUser.IpAddress)), ct);
-        await unitOfWork.SaveChangesAsync(ct);
+            var usuarioId = currentUser.RequireUserId();
+            var agora = clock.UtcNow;
+            await documentos.MarcarComoLidosAsync(ids, usuarioId, agora, ct);
+            var detalhe = $"Download em lote ({ids.Count} arquivos)";
+            await documentos.RegistrarEventosAsync(
+                ids.Select(id => DocumentoEvento.Criar(id, TipoEventoDocumento.Download, usuarioId, agora, detalhe, currentUser.IpAddress)), ct);
+            await unitOfWork.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            await zip.DisposeAsync();
+            throw;
+        }
 
         return new ArquivoParaDownload(zip, "application/zip", $"documentos-{clock.UtcNow:yyyyMMddHHmmss}.zip");
     }

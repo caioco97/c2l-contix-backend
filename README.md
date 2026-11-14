@@ -228,6 +228,31 @@ Todos sob `/api/v1`. Detalhes de payloads no Swagger.
 
 - **Provedores** (`ConsultaCnpj:Provedores`, em ordem): `BrasilApi` e `ReceitaWs` (APIs públicas, sem chave; o segundo só é usado se o primeiro estiver fora do ar) ou `Simulado`. Respostas ficam em cache por `ConsultaCnpj:CacheHoras` (24 h). CNPJ inexistente responde 404; todos os provedores fora do ar, 422.
 
+### Equipe, obrigações e tarefas
+
+| Método | Rota | Perfil | Descrição |
+| --- | --- | --- | --- |
+| GET / PUT | `/departamentos[/{codigo}]` | escritório (PUT: admin) | Departamentos do escritório (Contábil, Fiscal, Pessoal, Societário, Financeiro): renomear e ativar/desativar |
+| GET / PUT | `/empresas/{id}/responsaveis` | escritório | Responsável de cada departamento na empresa. Solicitações novas vão direto para ele (e só ele é avisado) |
+| GET / POST / PUT / DELETE | `/obrigacoes[/{id}]` | escritório | Obrigações recorrentes (mensal, trimestral, anual) por departamento e regime tributário |
+| POST | `/obrigacoes/{id}/geracoes` | escritório | Gera agora as tarefas da obrigação (idempotente: uma tarefa por empresa e competência) |
+| POST | `/empresas/{id}/tarefas/{tarefaId}/conclusao` | escritório | Conclui a tarefa entregando arquivos ao cliente (multipart `arquivos`, `pastaId`, `mensagem`, `competencia`, `dataVencimento`) |
+| GET | `/empresas/{id}/solicitacoes/{solicitacaoId}/tarefas` | escritório | Tarefas abertas a partir da solicitação (`solicitacaoId` no cadastro da tarefa) |
+| GET | `/empresas/{id}/rubricas/modelo?formato=Xlsx\|Csv` | módulo Solicitações | Planilha modelo com os empregados ativos |
+| POST | `/empresas/{id}/rubricas/importacao` | módulo Solicitações | Multipart `arquivo` (.xlsx/.csv, até 500 linhas e 2 MB). Devolve os lançamentos válidos e os erros por linha; nada é gravado |
+
+### Painel e relatórios
+
+| Método | Rota | Perfil | Descrição |
+| --- | --- | --- | --- |
+| GET | `/painel` | escritório | Indicadores do escritório no período (`de`, `ate`, `departamento`): clientes ativos, solicitações, tarefas e documentos. Cache de 60 s por escritório e filtro |
+| GET | `/relatorios/{tipo}?formato=Json\|Csv\|Pdf` | escritório | Relatórios de `Documentos`, `Solicitacoes` e `Tarefas` (prévia de 200 linhas em JSON; exportação de até 20.000) |
+| GET | `/empresas/{id}/relatorios/solicitacoes` | cliente | Relatório de solicitações da própria empresa |
+| GET | `/empresas/{id}/notas-fiscais/{notaId}/danfe` | módulo NF-e | DANFE em PDF |
+| POST | `/empresas/{id}/notas-fiscais/download` | módulo NF-e | XML e/ou DANFE de até 500 notas em um .zip |
+
+Os PDFs usam o [QuestPDF](https://www.questpdf.com/license/) na licença Community, gratuita para empresas com faturamento anual abaixo de US$ 1 milhão. Acima disso é preciso uma licença comercial.
+
 ## Configuração
 
 Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de ambiente (`Secao__Chave`).
@@ -249,6 +274,7 @@ Configurações em `appsettings.{Ambiente}.json`, sobrescritas por variáveis de
 | `NFe__Sefaz__CadeiaIcpBrasil` | Pasta com os certificados (.crt/.cer/.pem) das ACs da ICP-Brasil. Os servidores da SEFAZ usam certificados ICP-Brasil, que não estão no repositório de confiança padrão do Linux |
 | `Push__Provider` / `Push__AccessToken` | `Expo` ou `Log` (padrão) / access token do Expo, se o projeto exigir (**secret**) |
 | `ConsultaCnpj__Provedores__N` | Provedores da consulta de CNPJ, em ordem (`BrasilApi`, `ReceitaWs`, `Simulado`) |
+| `Obrigacoes__Habilitado` / `Obrigacoes__IntervaloMinutos` / `Obrigacoes__JanelaGeracaoDias` / `Obrigacoes__TamanhoLote` | Job que gera as tarefas das obrigações recorrentes (padrão: a cada 60 min, vencimentos nos próximos 45 dias, 500 empresas por lote) |
 
 Para produção: `ASPNETCORE_ENVIRONMENT=Production`, chave JWT via secret, migrations aplicadas no pipeline de deploy (ou `Database__MigrateOnStartup=true` em instância única), volume persistente ou storage em nuvem para documentos e HTTPS terminado no proxy/ingress.
 
@@ -286,4 +312,4 @@ Atrás de proxy/ingress, informe as redes confiáveis em `ForwardedHeaders__Rede
 
 ## Próximos passos (backlog)
 
-Departamentos e responsáveis (os avisos de CND vão para toda a equipe até existir o responsável por empresa), editor rico nas notícias, emissão automática de CND estadual e municipal, DANFE em PDF e aviso de NF-e nova ao cliente, tarefas recorrentes (obrigações mensais). Em solicitações: ativar/desativar tipos por empresa, atribuição automática por responsável do cliente, importação de rubricas por planilha e relatórios.
+Editor rico nas notícias, emissão automática de CND estadual e municipal (depende do contrato com a Infosimples), aviso de NF-e nova ao cliente e ativar/desativar tipos de solicitação por empresa.

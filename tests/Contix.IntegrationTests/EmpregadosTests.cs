@@ -181,4 +181,47 @@ public sealed class EmpregadosTests(ContixApiFactory factory)
         Assert.Equal("Doenca", ficha["afastamentos"]![0]!["motivo"]!.GetValue<string>());
         Assert.Equal(300m, ficha["rubricas"]![0]!["valor"]!.GetValue<decimal>());
     }
+
+    [Fact]
+    public async Task Rubricas_por_planilha_modelo_e_validacao_por_linha()
+    {
+        var colaborador = await LoginAsync("colaborador@contix.dev");
+        var cliente = await LoginAsync("cliente@contix.dev");
+        var empresaId = await EmpresaDemoAsync(cliente);
+        var cpf = NovoCpf();
+        await CriarAsync(colaborador, empresaId, "Planilha Teste", cpf);
+
+        var modelo = await cliente.GetAsync($"/api/v1/empresas/{empresaId}/rubricas/modelo?formato=Csv");
+        Assert.Equal(HttpStatusCode.OK, modelo.StatusCode);
+        Assert.Contains(cpf[..3], await modelo.Content.ReadAsStringAsync());
+        var xlsx = await cliente.GetAsync($"/api/v1/empresas/{empresaId}/rubricas/modelo");
+        Assert.Equal(HttpStatusCode.OK, xlsx.StatusCode);
+        Assert.Equal((byte)'P', (await xlsx.Content.ReadAsByteArrayAsync())[0]); // zip
+
+        var csv = "CPF;Matrícula;Empregado;Rubrica;Quantidade;Valor\r\n"
+                  + $"{cpf};;Planilha Teste;Horas extras 50%;10;\r\n"
+                  + $"{cpf};;Planilha Teste;Comissão;;1.234,56\r\n"
+                  + "000.000.000-00;;Ninguém;Faltas;1;\r\n"
+                  + $"{cpf};;Planilha Teste;;abc;\r\n";
+        var form = new MultipartFormDataContent
+        {
+            { new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(csv)) { Headers = { ContentType = new("text/csv") } }, "arquivo", "rubricas.csv" }
+        };
+        var r = await JsonAsync(await cliente.PostAsync($"/api/v1/empresas/{empresaId}/rubricas/importacao", form));
+        Assert.Equal(4, r["totalLinhas"]!.GetValue<int>());
+        var validos = r["validos"]!.AsArray();
+        Assert.Equal(2, validos.Count);
+        Assert.Equal(1234.56m, validos[1]!["valor"]!.GetValue<decimal>());
+        var erros = r["erros"]!.AsArray();
+        Assert.Contains(erros, e => e!["linha"]!.GetValue<int>() == 4 && e["campo"]!.GetValue<string>() == "empregado");
+        Assert.Contains(erros, e => e!["linha"]!.GetValue<int>() == 5 && e["campo"]!.GetValue<string>() == "rubrica");
+        Assert.Contains(erros, e => e!["linha"]!.GetValue<int>() == 5 && e["campo"]!.GetValue<string>() == "quantidade");
+
+        var invalido = new MultipartFormDataContent
+        {
+            { new ByteArrayContent("x"u8.ToArray()) { Headers = { ContentType = new("application/pdf") } }, "arquivo", "rubricas.pdf" }
+        };
+        Assert.Equal(HttpStatusCode.UnprocessableEntity,
+            (await cliente.PostAsync($"/api/v1/empresas/{empresaId}/rubricas/importacao", invalido)).StatusCode);
+    }
 }

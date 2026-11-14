@@ -226,6 +226,9 @@ public sealed class DocumentoRepository(ContixDbContext context) : Repository<Do
         Projetar(Set.AsNoTracking().Where(d => d.EmpresaId == empresaId && d.Id == documentoId), usuarioId)
             .FirstOrDefaultAsync(ct);
 
+    public async Task<IReadOnlyList<DocumentoDto>> ListarDtosAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, Guid usuarioId, CancellationToken ct = default) =>
+        await Projetar(Set.AsNoTracking().Where(d => d.EmpresaId == empresaId && ids.Contains(d.Id)), usuarioId).ToListAsync(ct);
+
     public async Task<IReadOnlyList<Documento>> ListarPorIdsAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
         await Set.AsNoTracking().Where(d => d.EmpresaId == empresaId && ids.Contains(d.Id)).ToListAsync(ct);
 

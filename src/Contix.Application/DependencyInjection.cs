@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IPastaService, PastaService>();
         services.AddScoped<IDocumentoService, DocumentoService>();
         services.AddScoped<ISolicitacaoService, SolicitacaoService>();
+        services.AddScoped<IImportacaoRubricasService, ImportacaoRubricasService>();
         services.AddScoped<ITarefaService, TarefaService>();
         services.AddScoped<IEquipeService, EquipeService>();
         services.AddScoped<IObrigacaoService, ObrigacaoService>();
