@@ -30,6 +30,24 @@ public sealed class EmpregadoRepository(ContixDbContext context) : Repository<Em
     public async Task<IReadOnlyList<Empregado>> ListarPorIdsAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
         await Set.AsNoTracking().Where(e => e.EmpresaId == empresaId && ids.Contains(e.Id)).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Empregado>> ListarAtivosAsync(Guid empresaId, CancellationToken ct = default) =>
+        await Set.AsNoTracking()
+            .Where(e => e.EmpresaId == empresaId && e.Situacao != SituacaoEmpregado.Desligado)
+            .OrderBy(e => e.Nome)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Empregado>> ListarPorCpfsOuMatriculasAsync(
+        Guid empresaId, IReadOnlyCollection<string> cpfs, IReadOnlyCollection<string> matriculas, CancellationToken ct = default)
+    {
+        if (cpfs.Count == 0 && matriculas.Count == 0) return [];
+        var minusculas = matriculas.Select(m => m.Trim().ToLowerInvariant()).ToList();
+        return await Set.AsNoTracking()
+            .Where(e => e.EmpresaId == empresaId
+                        && ((e.Cpf != null && cpfs.Contains(e.Cpf))
+                            || (e.Matricula != null && minusculas.Contains(e.Matricula.Trim().ToLower()))))
+            .ToListAsync(ct);
+    }
+
     public Task<Empregado?> ObterPorCpfAsync(Guid empresaId, string cpf, CancellationToken ct = default) =>
         Set.FirstOrDefaultAsync(e => e.EmpresaId == empresaId && e.Cpf == cpf, ct);
 }
