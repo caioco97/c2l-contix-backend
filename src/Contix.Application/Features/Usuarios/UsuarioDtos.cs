@@ -9,11 +9,11 @@ namespace Contix.Application.Features.Usuarios;
 public sealed record UsuarioDto(
     Guid Id, string Nome, string Email, PerfilUsuario Perfil, bool Ativo,
     DateTime? UltimoLoginEm, DateTime CreatedAt, IReadOnlyList<Guid> EmpresaIds,
-    bool ConvitePendente, DateTime? ConviteEnviadoEm)
+    bool ConvitePendente, DateTime? ConviteEnviadoEm, IReadOnlyList<Departamento> Departamentos)
 {
     public static UsuarioDto From(Usuario u) => new(
         u.Id, u.Nome, u.Email, u.Perfil, u.Ativo, u.UltimoLoginEm, u.CreatedAt,
-        u.Empresas.Select(e => e.EmpresaId).ToList(), u.ConvitePendente, u.ConviteEnviadoEm);
+        u.Empresas.Select(e => e.EmpresaId).ToList(), u.ConvitePendente, u.ConviteEnviadoEm, u.Departamentos);
 }
 
 /// <summary>Usuário do portal do cliente no contexto de uma empresa, com as permissões nela.</summary>
@@ -48,14 +48,22 @@ public sealed record UsuarioFiltro : PageQuery
     public PerfilUsuario? Perfil { get; init; }
     public bool? Ativo { get; init; }
     public Guid? EmpresaId { get; init; }
+    /// <summary>Usuários do escritório que atuam no departamento.</summary>
+    public Departamento? Departamento { get; init; }
+    /// <summary>true: só administradores e colaboradores (tela de equipe).</summary>
+    public bool? Escritorio { get; init; }
 }
 
 /// <param name="Senha">Opcional: sem senha, o usuário recebe um convite por e-mail para criar a própria.</param>
+/// <param name="Departamentos">Departamentos em que o colaborador atua (só para administradores e colaboradores).</param>
 public sealed record CriarUsuarioRequest(
-    string Nome, string Email, PerfilUsuario Perfil, string? Senha, IReadOnlyList<Guid>? EmpresaIds);
+    string Nome, string Email, PerfilUsuario Perfil, string? Senha, IReadOnlyList<Guid>? EmpresaIds,
+    IReadOnlyList<Departamento>? Departamentos = null);
 
+/// <param name="Departamentos">Nulo mantém os departamentos atuais.</param>
 public sealed record AtualizarUsuarioRequest(
-    string Nome, PerfilUsuario Perfil, bool Ativo, IReadOnlyList<Guid>? EmpresaIds);
+    string Nome, PerfilUsuario Perfil, bool Ativo, IReadOnlyList<Guid>? EmpresaIds,
+    IReadOnlyList<Departamento>? Departamentos = null);
 
 public sealed class CriarUsuarioRequestValidator : AbstractValidator<CriarUsuarioRequest>
 {
@@ -67,6 +75,7 @@ public sealed class CriarUsuarioRequestValidator : AbstractValidator<CriarUsuari
         RuleFor(x => x.Senha!).Senha().When(x => !string.IsNullOrEmpty(x.Senha));
         RuleFor(x => x.EmpresaIds).NotEmpty().When(x => x.Perfil == PerfilUsuario.Cliente)
             .WithMessage("Usuário do cliente deve estar vinculado a ao menos uma empresa.");
+        RuleForEach(x => x.Departamentos).IsInEnum();
     }
 }
 
@@ -78,6 +87,7 @@ public sealed class AtualizarUsuarioRequestValidator : AbstractValidator<Atualiz
         RuleFor(x => x.Perfil).IsInEnum();
         RuleFor(x => x.EmpresaIds).NotEmpty().When(x => x.Perfil == PerfilUsuario.Cliente)
             .WithMessage("Usuário do cliente deve estar vinculado a ao menos uma empresa.");
+        RuleForEach(x => x.Departamentos).IsInEnum();
     }
 }
 

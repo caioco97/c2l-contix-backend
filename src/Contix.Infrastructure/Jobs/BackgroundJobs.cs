@@ -142,3 +142,37 @@ public sealed class SincronizacaoNFeJob(
         }
     }
 }
+
+/// <summary>Gera as tarefas das obrigações recorrentes cujo vencimento se aproxima (CTX-67). Idempotente.</summary>
+public sealed class ObrigacoesRecorrentesJob(
+    IServiceScopeFactory scopeFactory, IOptions<Contix.Application.Features.Obrigacoes.ObrigacoesOptions> options,
+    ILogger<ObrigacoesRecorrentesJob> logger) : JobPeriodico(logger)
+{
+    protected override bool Habilitado => options.Value.Habilitado;
+    protected override TimeSpan Intervalo => TimeSpan.FromMinutes(Math.Max(5, options.Value.IntervaloMinutos));
+
+    protected override async Task ExecutarUmaVezAsync(CancellationToken ct)
+    {
+        IReadOnlyList<Guid> ids;
+        await using (var scope = scopeFactory.CreateAsyncScope())
+            ids = await scope.ServiceProvider.GetRequiredService<Contix.Application.Features.Obrigacoes.IObrigacaoRepository>()
+                .ListarAtivasIgnorandoTenantAsync(ct);
+
+        var total = 0;
+        foreach (var id in ids)
+        {
+            // Cada obrigação em seu escopo: a falha de uma (ex.: conflito com outra instância) não impede as demais.
+            try
+            {
+                await using var scope = scopeFactory.CreateAsyncScope();
+                total += await scope.ServiceProvider.GetRequiredService<Contix.Application.Features.Obrigacoes.IGeradorTarefasObrigacao>()
+                    .ProcessarAsync(id, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Falha ao gerar as tarefas da obrigação {ObrigacaoId}", id);
+            }
+        }
+        if (total > 0) logger.LogInformation("{Total} tarefas geradas pelas obrigações recorrentes", total);
+    }
+}

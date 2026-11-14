@@ -63,6 +63,7 @@ public sealed class UsuarioService(
             SenhaHash = passwordHasher.Hash(convidar ? tokenService.GerarTokenOpaco().Token : request.Senha!)
         };
         await DefinirEmpresasAsync(usuario, request.Perfil, request.EmpresaIds, ct);
+        DefinirDepartamentos(usuario, request.Departamentos ?? []);
 
         await usuarios.AddAsync(usuario, ct);
         if (convidar) await convites.EnviarAsync(usuario, null, ct);
@@ -82,6 +83,7 @@ public sealed class UsuarioService(
         usuario.Nome = request.Nome.Trim();
         usuario.Perfil = request.Perfil;
         await DefinirEmpresasAsync(usuario, request.Perfil, request.EmpresaIds, ct);
+        DefinirDepartamentos(usuario, request.Departamentos ?? usuario.Departamentos);
 
         await DefinirAtivoAsync(usuario, request.Ativo, ct);
 
@@ -130,6 +132,10 @@ public sealed class UsuarioService(
         if (currentUser.Perfil == PerfilUsuario.Colaborador && perfil == PerfilUsuario.Cliente) return;
         throw new ForbiddenException("Apenas administradores podem gerenciar usuários do escritório.");
     }
+
+    /// <summary>Departamentos só fazem sentido para a equipe do escritório.</summary>
+    private static void DefinirDepartamentos(Usuario usuario, IEnumerable<Departamento> departamentos) =>
+        usuario.Departamentos = usuario.EhDoEscritorio ? departamentos.Distinct().Order().ToList() : [];
 
     private async Task DefinirEmpresasAsync(Usuario usuario, PerfilUsuario perfil, IReadOnlyList<Guid>? empresaIds, CancellationToken ct)
     {

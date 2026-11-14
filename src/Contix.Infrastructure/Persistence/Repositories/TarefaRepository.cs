@@ -22,6 +22,9 @@ public sealed class TarefaRepository(ContixDbContext context) : Repository<Taref
         if (filtro.Atrasadas == true)
             q = q.Where(t => t.PrazoInterno < hoje && t.Status != StatusTarefa.Concluida && t.Status != StatusTarefa.Cancelada);
         if (filtro.PrazoAte is { } ate) q = q.Where(t => t.PrazoInterno <= ate);
+        if (filtro.PrazoDe is { } de) q = q.Where(t => t.PrazoInterno >= de);
+        if (filtro.ObrigacaoId is { } obrigacaoId) q = q.Where(t => t.ObrigacaoId == obrigacaoId);
+        if (filtro.SolicitacaoId is { } solicitacaoId) q = q.Where(t => t.SolicitacaoId == solicitacaoId);
         if (!string.IsNullOrWhiteSpace(filtro.Busca))
         {
             var termo = filtro.Busca.Trim().TrimStart('#');
@@ -45,21 +48,30 @@ public sealed class TarefaRepository(ContixDbContext context) : Repository<Taref
             _ => q.OrderBy(t => t.PrazoInterno).ThenBy(t => t.PrazoLegal == null).ThenBy(t => t.PrazoLegal).ThenBy(t => t.Numero)
         };
 
-        return q.Select(t => new TarefaResumoDto(
-                t.Id, t.Numero, t.EmpresaId, t.Empresa!.NomeFantasia ?? t.Empresa.RazaoSocial, t.Titulo, t.Departamento,
-                t.Status, t.ResponsavelId, t.Responsavel!.Nome, t.PrazoInterno, t.PrazoLegal,
-                t.PrazoInterno < hoje && t.Status != StatusTarefa.Concluida && t.Status != StatusTarefa.Cancelada,
-                t.PrazoLegal != null && t.PrazoLegal < hoje && t.Status != StatusTarefa.Concluida && t.Status != StatusTarefa.Cancelada,
-                t.Interacoes.Count(i => i.Tipo == TipoInteracaoTarefa.Comentario),
-                t.Anexos.Count,
-                t.CreatedAt, t.UpdatedAt))
+        return Projetar(q, hoje)
             .ToPagedAsync(filtro, ct);
     }
+
+    private static IQueryable<TarefaResumoDto> Projetar(IQueryable<Tarefa> q, DateOnly hoje) =>
+        q.Select(t => new TarefaResumoDto(
+            t.Id, t.Numero, t.EmpresaId, t.Empresa!.NomeFantasia ?? t.Empresa.RazaoSocial, t.Titulo, t.Departamento,
+            t.Status, t.ResponsavelId, t.Responsavel!.Nome, t.PrazoInterno, t.PrazoLegal,
+            t.PrazoInterno < hoje && t.Status != StatusTarefa.Concluida && t.Status != StatusTarefa.Cancelada,
+            t.PrazoLegal != null && t.PrazoLegal < hoje && t.Status != StatusTarefa.Concluida && t.Status != StatusTarefa.Cancelada,
+            t.Interacoes.Count(i => i.Tipo == TipoInteracaoTarefa.Comentario),
+            t.Anexos.Count,
+            t.CreatedAt, t.UpdatedAt, t.Competencia, t.ObrigacaoId, t.SolicitacaoId));
+
+    public async Task<IReadOnlyList<TarefaResumoDto>> ListarDaSolicitacaoAsync(Guid empresaId, Guid solicitacaoId, DateOnly hoje, CancellationToken ct = default) =>
+        await Projetar(Set.AsNoTracking().Where(t => t.EmpresaId == empresaId && t.SolicitacaoId == solicitacaoId)
+            .OrderBy(t => t.Numero), hoje).ToListAsync(ct);
 
     public Task<Tarefa?> ObterCompletaAsync(Guid empresaId, Guid tarefaId, CancellationToken ct = default) =>
         Set.Include(t => t.Empresa)
             .Include(t => t.Responsavel)
             .Include(t => t.CriadoPor)
+            .Include(t => t.Solicitacao)
+            .Include(t => t.Obrigacao)
             .Include(t => t.Interacoes).ThenInclude(i => i.Autor)
             .Include(t => t.Anexos).ThenInclude(a => a.EnviadoPor)
             .AsSplitQuery()
@@ -71,12 +83,15 @@ public sealed class TarefaRepository(ContixDbContext context) : Repository<Taref
             .SelectMany(t => t.Anexos)
             .FirstOrDefaultAsync(a => a.Id == anexoId, ct);
 
-    public async Task<int> ProximoNumeroAsync(Guid tenantId, CancellationToken ct = default)
+    public Task<int> ProximoNumeroAsync(Guid tenantId, CancellationToken ct = default) => ReservarNumerosAsync(tenantId, 1, ct);
+
+    public async Task<int> ReservarNumerosAsync(Guid tenantId, int quantidade, CancellationToken ct = default)
     {
+        if (quantidade < 1) throw new ArgumentOutOfRangeException(nameof(quantidade));
         // UPDATE ... RETURNING bloqueia a linha do escritório: duas criações simultâneas nunca recebem o mesmo número.
         var numeros = await Context.Database
-            .SqlQuery<int>($"UPDATE escritorios SET ultimo_numero_tarefa = ultimo_numero_tarefa + 1 WHERE id = {tenantId} RETURNING ultimo_numero_tarefa AS \"Value\"")
+            .SqlQuery<int>($"UPDATE escritorios SET ultimo_numero_tarefa = ultimo_numero_tarefa + {quantidade} WHERE id = {tenantId} RETURNING ultimo_numero_tarefa AS \"Value\"")
             .ToListAsync(ct);
-        return numeros.Count == 1 ? numeros[0] : throw new InvalidOperationException("Escritório não encontrado.");
+        return numeros.Count == 1 ? numeros[0] - quantidade + 1 : throw new InvalidOperationException("Escritório não encontrado.");
     }
 }

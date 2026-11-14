@@ -7,6 +7,7 @@ using Contix.Application.Features.Notificacoes;
 using Contix.Application.Features.Usuarios;
 using Contix.Domain.Entities;
 using Contix.Domain.Enums;
+using Contix.Domain.Exceptions;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
 
@@ -24,6 +25,10 @@ public interface ITarefaService
     Task<TarefaDto> ComentarAsync(Guid empresaId, Guid tarefaId, ComentarTarefaCommand command, CancellationToken ct = default);
     Task<TarefaDto> AlterarStatusAsync(Guid empresaId, Guid tarefaId, AlterarStatusTarefaRequest request, CancellationToken ct = default);
     Task<ArquivoParaDownload> BaixarAnexoAsync(Guid empresaId, Guid tarefaId, Guid anexoId, CancellationToken ct = default);
+    /// <summary>Conclui a tarefa e, opcionalmente, publica os arquivos entregues na pasta da empresa.</summary>
+    Task<TarefaDto> ConcluirAsync(Guid empresaId, Guid tarefaId, ConcluirTarefaCommand command, CancellationToken ct = default);
+    /// <summary>Tarefas criadas a partir de uma solicitação do cliente.</summary>
+    Task<IReadOnlyList<TarefaResumoDto>> ListarDaSolicitacaoAsync(Guid empresaId, Guid solicitacaoId, CancellationToken ct = default);
 }
 
 public sealed class TarefaService(
@@ -36,6 +41,10 @@ public sealed class TarefaService(
     IDateTimeProvider clock,
     INotificador notificador,
     INotificacaoRepository destinatarios,
+    Solicitacoes.ISolicitacaoRepository solicitacoes,
+    IDocumentoRepository documentos,
+    IDocumentoService documentoService,
+    IValidator<ConcluirTarefaCommand> concluirValidator,
     IValidator<CriarTarefaCommand> criarValidator,
     IValidator<EditarTarefaRequest> editarValidator,
     IValidator<ComentarTarefaCommand> comentarValidator,
@@ -59,7 +68,11 @@ public sealed class TarefaService(
     public async Task<TarefaDto> ObterAsync(Guid empresaId, Guid tarefaId, CancellationToken ct = default)
     {
         await GarantirAcessoAsync(empresaId, ct);
-        return ToDto(await CarregarAsync(empresaId, tarefaId, ct));
+        var tarefa = await CarregarAsync(empresaId, tarefaId, ct);
+        var entregues = tarefa.DocumentosEntregues.Count == 0
+            ? []
+            : await documentos.ListarPorIdsAsync(empresaId, tarefa.DocumentosEntregues, ct);
+        return ToDto(tarefa, entregues);
     }
 
     public async Task<TarefaDto> CriarAsync(Guid empresaId, CriarTarefaCommand command, CancellationToken ct = default)
@@ -68,11 +81,18 @@ public sealed class TarefaService(
         var empresa = await GarantirAcessoAsync(empresaId, ct);
         var responsavel = await ObterResponsavelAsync(command.ResponsavelId, ct);
         var usuarioId = currentUser.RequireUserId();
+        Solicitacao? solicitacao = null;
+        if (command.SolicitacaoId is { } solicitacaoId)
+        {
+            solicitacao = await solicitacoes.GetByIdAsync(solicitacaoId, ct);
+            if (solicitacao is null || solicitacao.EmpresaId != empresaId) throw new NotFoundException("Solicitação", solicitacaoId);
+        }
 
         var tarefa = Tarefa.Criar(empresa.TenantId, empresaId, await tarefas.ProximoNumeroAsync(empresa.TenantId, ct),
             command.Titulo, command.Descricao, command.Departamento, responsavel.Id,
             command.PrazoInterno!.Value, command.PrazoLegal, usuarioId, clock.UtcNow);
         tarefa.Empresa = empresa;
+        if (solicitacao is not null) tarefa.VincularSolicitacao(solicitacao.Id);
 
         await SalvarComAnexosAsync(tarefa, tarefa.Interacoes.Single(), command.Anexos, async () =>
         {
@@ -96,7 +116,7 @@ public sealed class TarefaService(
 
         var edicao = tarefa.Editar(request.Titulo, request.Descricao, request.Departamento, responsavel.Id, responsavel.Nome,
             request.PrazoInterno!.Value, request.PrazoLegal, currentUser.RequireUserId(), clock.UtcNow);
-        if (edicao is null) return ToDto(tarefa);
+        if (edicao is null) return await ObterAsync(empresaId, tarefaId, ct);
 
         if (responsavel.Id != responsavelAnterior) await NotificarResponsavelAsync(tarefa, responsavel.Id, ct);
         await unitOfWork.SaveChangesAsync(ct);
@@ -136,6 +156,40 @@ public sealed class TarefaService(
                     ?? throw new NotFoundException("Anexo", anexoId);
         var stream = await storage.OpenReadAsync(anexo.StorageKey, ct);
         return new ArquivoParaDownload(stream, anexo.ContentType, anexo.NomeArquivo);
+    }
+
+    public async Task<TarefaDto> ConcluirAsync(Guid empresaId, Guid tarefaId, ConcluirTarefaCommand command, CancellationToken ct = default)
+    {
+        await concluirValidator.ValidateAndThrowAsync(command, ct);
+        await GarantirAcessoAsync(empresaId, ct);
+        var tarefa = await CarregarAsync(empresaId, tarefaId, ct);
+        if (!Tarefa.TransicoesPermitidas(tarefa.Status).Contains(StatusTarefa.Concluida))
+            throw new DomainException(tarefa.Status == StatusTarefa.Concluida
+                ? "A tarefa já está concluída."
+                : "Reabra a tarefa antes de concluí-la.");
+
+        var mensagem = command.Mensagem;
+        if (command.Arquivos.Count > 0)
+        {
+            // Publica primeiro: se o upload falhar, a tarefa continua aberta.
+            var publicados = await documentoService.EnviarAsync(empresaId, new UploadDocumentosCommand(
+                command.PastaId!.Value, $"Entrega da tarefa #{tarefa.Numero}: {tarefa.Titulo}",
+                command.Competencia ?? tarefa.Competencia, command.DataVencimento, command.Arquivos), ct);
+            tarefa.RegistrarEntrega(publicados.Select(d => d.Id));
+            var lista = string.Join(", ", publicados.Select(d => d.Nome));
+            mensagem = (string.IsNullOrWhiteSpace(mensagem) ? "" : mensagem.Trim() + "\n\n") + $"Documentos publicados para o cliente: {lista}.";
+        }
+
+        tarefa.AlterarStatus(StatusTarefa.Concluida, currentUser.RequireUserId(), mensagem, clock.UtcNow);
+        await unitOfWork.SaveChangesAsync(ct);
+        logger.LogInformation("Tarefa {TarefaId} concluída com {Documentos} documento(s) entregues", tarefaId, command.Arquivos.Count);
+        return await ObterAsync(empresaId, tarefaId, ct);
+    }
+
+    public async Task<IReadOnlyList<TarefaResumoDto>> ListarDaSolicitacaoAsync(Guid empresaId, Guid solicitacaoId, CancellationToken ct = default)
+    {
+        await GarantirAcessoAsync(empresaId, ct);
+        return await tarefas.ListarDaSolicitacaoAsync(empresaId, solicitacaoId, Hoje, ct);
     }
 
     /* ---------- Auxiliares ---------- */
@@ -216,7 +270,7 @@ public sealed class TarefaService(
         }
     }
 
-    private TarefaDto ToDto(Tarefa t)
+    private TarefaDto ToDto(Tarefa t, IReadOnlyList<Documento> entregues)
     {
         var anexosPorInteracao = t.Anexos
             .OrderBy(a => a.CreatedAt)
@@ -236,6 +290,9 @@ public sealed class TarefaService(
             t.Titulo, t.Descricao, t.Departamento, t.Status, t.ResponsavelId, t.Responsavel?.Nome ?? "",
             t.CriadoPorId, t.CriadoPor?.Nome ?? "", t.PrazoInterno, t.PrazoLegal,
             t.EstaAtrasada(Hoje), t.PrazoLegalVencido(Hoje), t.ConcluidaEm, t.CreatedAt, t.UpdatedAt,
-            Tarefa.TransicoesPermitidas(t.Status).ToList(), historico);
+            Tarefa.TransicoesPermitidas(t.Status).ToList(), historico,
+            t.Solicitacao is { } s ? new SolicitacaoVinculadaDto(s.Id, s.Numero, s.Assunto) : null,
+            t.ObrigacaoId, t.Obrigacao?.Titulo, t.Competencia,
+            entregues.Select(d => new DocumentoEntregueDto(d.Id, d.Nome, d.PastaId, d.DataVencimento)).ToList());
     }
 }

@@ -86,6 +86,8 @@ public sealed class UsuarioRepository(ContixDbContext context) : Repository<Usua
         if (filtro.Perfil is { } perfil) q = q.Where(u => u.Perfil == perfil);
         if (filtro.Ativo is { } ativo) q = q.Where(u => u.Ativo == ativo);
         if (filtro.EmpresaId is { } empresaId) q = q.Where(u => u.Empresas.Any(e => e.EmpresaId == empresaId));
+        if (filtro.Escritorio == true) q = q.Where(u => u.Perfil != PerfilUsuario.Cliente);
+        if (filtro.Departamento is { } departamento) q = q.Where(u => u.Departamentos.Contains(departamento));
 
         q = (filtro.OrderBy?.ToLowerInvariant(), filtro.Desc) switch
         {

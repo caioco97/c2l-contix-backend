@@ -305,6 +305,60 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("configuracoes_emissao_certidao", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.DepartamentoEscritorio", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("codigo");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("nome");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_departamentos");
+
+                    b.HasIndex("TenantId", "Codigo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_departamentos_tenant_id_codigo")
+                        .HasFilter("is_deleted = false");
+
+                    b.ToTable("departamentos", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.DispositivoPush", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1444,6 +1498,101 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("notificacoes", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.ObrigacaoRecorrente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativa");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CriadaPorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("criada_por_id");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Departamento")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("departamento");
+
+                    b.Property<string>("Descricao")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)")
+                        .HasColumnName("descricao");
+
+                    b.Property<int>("DiaVencimento")
+                        .HasColumnType("integer")
+                        .HasColumnName("dia_vencimento");
+
+                    b.Property<int>("DiasAntecedencia")
+                        .HasColumnType("integer")
+                        .HasColumnName("dias_antecedencia");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("MesReferencia")
+                        .HasColumnType("integer")
+                        .HasColumnName("mes_referencia");
+
+                    b.Property<int>("MesesAposCompetencia")
+                        .HasColumnType("integer")
+                        .HasColumnName("meses_apos_competencia");
+
+                    b.Property<string>("Periodicidade")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("periodicidade");
+
+                    b.PrimitiveCollection<string[]>("Regimes")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("regimes");
+
+                    b.Property<Guid?>("ResponsavelPadraoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responsavel_padrao_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("titulo");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_obrigacoes_recorrentes");
+
+                    b.HasIndex("ResponsavelPadraoId")
+                        .HasDatabaseName("ix_obrigacoes_recorrentes_responsavel_padrao_id");
+
+                    b.HasIndex("TenantId", "Ativa")
+                        .HasDatabaseName("ix_obrigacoes_recorrentes_tenant_id_ativa");
+
+                    b.ToTable("obrigacoes_recorrentes", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Pasta", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1663,6 +1812,64 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.ToTable("refresh_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.ResponsavelEmpresa", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Departamento")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("departamento");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("empresa_id");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("usuario_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_empresa_responsaveis");
+
+                    b.HasIndex("UsuarioId")
+                        .HasDatabaseName("ix_empresa_responsaveis_usuario_id");
+
+                    b.HasIndex("EmpresaId", "Departamento")
+                        .IsUnique()
+                        .HasDatabaseName("ix_empresa_responsaveis_empresa_id_departamento")
+                        .HasFilter("is_deleted = false");
+
+                    b.HasIndex("TenantId", "UsuarioId")
+                        .HasDatabaseName("ix_empresa_responsaveis_tenant_id_usuario_id");
+
+                    b.ToTable("empresa_responsaveis", (string)null);
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.SincronizacaoNFe", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1853,6 +2060,9 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.HasIndex("SolicitanteId")
                         .HasDatabaseName("ix_solicitacoes_solicitante_id");
 
+                    b.HasIndex("TenantId", "CreatedAt")
+                        .HasDatabaseName("ix_solicitacoes_tenant_id_created_at");
+
                     b.HasIndex("TenantId", "Numero")
                         .IsUnique()
                         .HasDatabaseName("ix_solicitacoes_tenant_id_numero");
@@ -1991,6 +2201,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateOnly?>("Competencia")
+                        .HasColumnType("date")
+                        .HasColumnName("competencia");
+
                     b.Property<DateTime?>("ConcluidaEm")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("concluida_em");
@@ -2018,6 +2232,11 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(5000)")
                         .HasColumnName("descricao");
 
+                    b.PrimitiveCollection<List<Guid>>("DocumentosEntregues")
+                        .IsRequired()
+                        .HasColumnType("uuid[]")
+                        .HasColumnName("documentos_entregues");
+
                     b.Property<Guid>("EmpresaId")
                         .HasColumnType("uuid")
                         .HasColumnName("empresa_id");
@@ -2030,6 +2249,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("numero");
 
+                    b.Property<Guid?>("ObrigacaoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("obrigacao_id");
+
                     b.Property<DateOnly>("PrazoInterno")
                         .HasColumnType("date")
                         .HasColumnName("prazo_interno");
@@ -2041,6 +2264,10 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ResponsavelId")
                         .HasColumnType("uuid")
                         .HasColumnName("responsavel_id");
+
+                    b.Property<Guid?>("SolicitacaoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("solicitacao_id");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -2074,12 +2301,20 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.HasIndex("ResponsavelId")
                         .HasDatabaseName("ix_tarefas_responsavel_id");
 
+                    b.HasIndex("SolicitacaoId")
+                        .HasDatabaseName("ix_tarefas_solicitacao_id");
+
                     b.HasIndex("TenantId", "Numero")
                         .IsUnique()
                         .HasDatabaseName("ix_tarefas_tenant_id_numero");
 
                     b.HasIndex("TenantId", "PrazoInterno")
                         .HasDatabaseName("ix_tarefas_tenant_id_prazo_interno");
+
+                    b.HasIndex("ObrigacaoId", "EmpresaId", "Competencia")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tarefas_obrigacao_id_empresa_id_competencia")
+                        .HasFilter("obrigacao_id IS NOT NULL AND is_deleted = false");
 
                     b.HasIndex("TenantId", "EmpresaId", "Status")
                         .HasDatabaseName("ix_tarefas_tenant_id_empresa_id_status");
@@ -2294,6 +2529,11 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
 
+                    b.PrimitiveCollection<string[]>("Departamentos")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("departamentos");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -2446,6 +2686,16 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Empresa");
 
                     b.Navigation("Responsavel");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.DepartamentoEscritorio", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Escritorio", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_departamentos_escritorios_tenant_id");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.DispositivoPush", b =>
@@ -2809,6 +3059,24 @@ namespace Contix.Infrastructure.Persistence.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Contix.Domain.Entities.ObrigacaoRecorrente", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Usuario", "ResponsavelPadrao")
+                        .WithMany()
+                        .HasForeignKey("ResponsavelPadraoId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_obrigacoes_recorrentes_usuarios_responsavel_padrao_id");
+
+                    b.HasOne("Contix.Domain.Entities.Escritorio", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_obrigacoes_recorrentes_escritorios_tenant_id");
+
+                    b.Navigation("ResponsavelPadrao");
+                });
+
             modelBuilder.Entity("Contix.Domain.Entities.Pasta", b =>
                 {
                     b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
@@ -2857,6 +3125,34 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_usuarios_usuario_id");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Contix.Domain.Entities.ResponsavelEmpresa", b =>
+                {
+                    b.HasOne("Contix.Domain.Entities.Empresa", "Empresa")
+                        .WithMany()
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_empresa_responsaveis_empresas_empresa_id");
+
+                    b.HasOne("Contix.Domain.Entities.Escritorio", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_empresa_responsaveis_escritorios_tenant_id");
+
+                    b.HasOne("Contix.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_empresa_responsaveis_usuarios_usuario_id");
+
+                    b.Navigation("Empresa");
 
                     b.Navigation("Usuario");
                 });
@@ -2977,12 +3273,24 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_tarefas_empresas_empresa_id");
 
+                    b.HasOne("Contix.Domain.Entities.ObrigacaoRecorrente", "Obrigacao")
+                        .WithMany()
+                        .HasForeignKey("ObrigacaoId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_tarefas_obrigacoes_recorrentes_obrigacao_id");
+
                     b.HasOne("Contix.Domain.Entities.Usuario", "Responsavel")
                         .WithMany()
                         .HasForeignKey("ResponsavelId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_tarefas_usuarios_responsavel_id");
+
+                    b.HasOne("Contix.Domain.Entities.Solicitacao", "Solicitacao")
+                        .WithMany()
+                        .HasForeignKey("SolicitacaoId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_tarefas_solicitacoes_solicitacao_id");
 
                     b.HasOne("Contix.Domain.Entities.Escritorio", null)
                         .WithMany()
@@ -2995,7 +3303,11 @@ namespace Contix.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Empresa");
 
+                    b.Navigation("Obrigacao");
+
                     b.Navigation("Responsavel");
+
+                    b.Navigation("Solicitacao");
                 });
 
             modelBuilder.Entity("Contix.Domain.Entities.TarefaAnexo", b =>

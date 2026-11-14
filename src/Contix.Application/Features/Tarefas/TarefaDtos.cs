@@ -10,7 +10,13 @@ public sealed record TarefaResumoDto(
     Guid Id, int Numero, Guid EmpresaId, string EmpresaNome, string Titulo, Departamento Departamento,
     StatusTarefa Status, Guid ResponsavelId, string ResponsavelNome,
     DateOnly PrazoInterno, DateOnly? PrazoLegal, bool Atrasada, bool PrazoLegalVencido,
-    int Comentarios, int Anexos, DateTime CreatedAt, DateTime? UpdatedAt);
+    int Comentarios, int Anexos, DateTime CreatedAt, DateTime? UpdatedAt,
+    DateOnly? Competencia, Guid? ObrigacaoId, Guid? SolicitacaoId);
+
+public sealed record DocumentoEntregueDto(Guid Id, string Nome, Guid PastaId, DateOnly? DataVencimento);
+
+/// <summary>Solicitação do cliente que originou a tarefa.</summary>
+public sealed record SolicitacaoVinculadaDto(Guid Id, int Numero, string Assunto);
 
 public sealed record AnexoTarefaDto(Guid Id, string NomeArquivo, string ContentType, long TamanhoBytes, string EnviadoPorNome, DateTime CreatedAt);
 
@@ -24,7 +30,10 @@ public sealed record TarefaDto(
     DateOnly PrazoInterno, DateOnly? PrazoLegal, bool Atrasada, bool PrazoLegalVencido,
     DateTime? ConcluidaEm, DateTime CreatedAt, DateTime? UpdatedAt,
     IReadOnlyList<StatusTarefa> TransicoesPermitidas,
-    IReadOnlyList<InteracaoTarefaDto> Historico);
+    IReadOnlyList<InteracaoTarefaDto> Historico,
+    SolicitacaoVinculadaDto? Solicitacao,
+    Guid? ObrigacaoId, string? ObrigacaoTitulo, DateOnly? Competencia,
+    IReadOnlyList<DocumentoEntregueDto> DocumentosEntregues);
 
 /// <summary>Filtros da listagem. Na rota da empresa, <see cref="EmpresaId"/> é ignorado.</summary>
 public sealed record TarefaFiltro : PageQuery
@@ -39,10 +48,15 @@ public sealed record TarefaFiltro : PageQuery
     public bool? Atrasadas { get; init; }
     /// <summary>Prazo interno até esta data (inclusive), ex.: "vencem nesta semana".</summary>
     public DateOnly? PrazoAte { get; init; }
+    /// <summary>Prazo interno a partir desta data (inclusive).</summary>
+    public DateOnly? PrazoDe { get; init; }
+    public Guid? ObrigacaoId { get; init; }
+    public Guid? SolicitacaoId { get; init; }
     /// <summary>Busca por número ou título.</summary>
     public string? Busca { get; init; }
 }
 
+/// <param name="SolicitacaoId">Solicitação do cliente que originou a tarefa (mantém o vínculo).</param>
 public sealed record CriarTarefaCommand(
     string Titulo,
     string? Descricao,
@@ -50,7 +64,19 @@ public sealed record CriarTarefaCommand(
     Guid ResponsavelId,
     DateOnly? PrazoInterno,
     DateOnly? PrazoLegal,
-    IReadOnlyList<ArquivoUpload> Anexos) : IDadosTarefa;
+    IReadOnlyList<ArquivoUpload> Anexos,
+    Guid? SolicitacaoId = null) : IDadosTarefa;
+
+/// <summary>
+/// Conclui a tarefa. Com arquivos, publica-os como documentos na pasta da empresa (entrega ao cliente),
+/// com competência e vencimento opcionais, e registra a entrega na tarefa.
+/// </summary>
+public sealed record ConcluirTarefaCommand(
+    string? Mensagem,
+    Guid? PastaId,
+    DateOnly? Competencia,
+    DateOnly? DataVencimento,
+    IReadOnlyList<ArquivoUpload> Arquivos);
 
 public sealed record EditarTarefaRequest(
     string Titulo,
@@ -116,6 +142,19 @@ public sealed class ComentarTarefaCommandValidator : AbstractValidator<ComentarT
         RuleFor(x => x.Anexos).Must(a => a.Count <= options.Value.MaximoArquivosPorUpload)
             .WithMessage($"Envie no máximo {options.Value.MaximoArquivosPorUpload} arquivos por vez.");
         RuleForEach(x => x.Anexos).SetValidator(new ArquivoUploadValidator(options));
+    }
+}
+
+public sealed class ConcluirTarefaCommandValidator : AbstractValidator<ConcluirTarefaCommand>
+{
+    public ConcluirTarefaCommandValidator(Microsoft.Extensions.Options.IOptions<DocumentoOptions> options)
+    {
+        RuleFor(x => x.Mensagem).MaximumLength(5000);
+        RuleFor(x => x.PastaId).NotEmpty().When(x => x.Arquivos.Count > 0)
+            .WithMessage("Escolha a pasta da empresa onde publicar os documentos.");
+        RuleFor(x => x.Arquivos).Must(a => a.Count <= options.Value.MaximoArquivosPorUpload)
+            .WithMessage($"Envie no máximo {options.Value.MaximoArquivosPorUpload} arquivos por vez.");
+        RuleForEach(x => x.Arquivos).SetValidator(new ArquivoUploadValidator(options));
     }
 }
 
