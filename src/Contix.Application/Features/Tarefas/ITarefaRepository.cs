@@ -16,4 +16,10 @@ public interface ITarefaRepository : IRepository<Tarefa>
 
     /// <summary>Reserva o próximo número da sequência de tarefas do escritório (atômico).</summary>
     Task<int> ProximoNumeroAsync(Guid tenantId, CancellationToken ct = default);
+
+    /// <summary>Reserva <paramref name="quantidade"/> números seguidos e devolve o primeiro (atômico).</summary>
+    Task<int> ReservarNumerosAsync(Guid tenantId, int quantidade, CancellationToken ct = default);
+
+    /// <summary>Tarefas vinculadas à solicitação do cliente.</summary>
+    Task<IReadOnlyList<TarefaResumoDto>> ListarDaSolicitacaoAsync(Guid empresaId, Guid solicitacaoId, DateOnly hoje, CancellationToken ct = default);
 }

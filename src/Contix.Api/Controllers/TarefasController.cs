@@ -39,7 +39,7 @@ public sealed class TarefasController(ITarefaService service) : ApiControllerBas
     {
         var tarefa = await service.CriarAsync(empresaId, new CriarTarefaCommand(
             form.Titulo ?? "", form.Descricao, form.Departamento, form.ResponsavelId, form.PrazoInterno, form.PrazoLegal,
-            Arquivos(form.Anexos)), ct);
+            Arquivos(form.Anexos), form.SolicitacaoId), ct);
         return CreatedAtAction(nameof(Obter), new { empresaId, tarefaId = tarefa.Id }, tarefa);
     }
 
@@ -63,6 +63,24 @@ public sealed class TarefasController(ITarefaService service) : ApiControllerBas
     public Task<TarefaDto> AlterarStatus(Guid empresaId, Guid tarefaId, AlterarStatusTarefaRequest request, CancellationToken ct) =>
         service.AlterarStatusAsync(empresaId, tarefaId, request, ct);
 
+    /// <summary>
+    /// Conclui a tarefa. Com arquivos, publica-os na pasta escolhida da empresa (com competência e vencimento opcionais)
+    /// e o cliente é avisado como em qualquer documento novo.
+    /// </summary>
+    [HttpPost("empresas/{empresaId:guid}/tarefas/{tarefaId:guid}/conclusao")]
+    [Consumes("multipart/form-data")]
+    [ProducesResponseType(typeof(TarefaDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
+    public Task<TarefaDto> Concluir(Guid empresaId, Guid tarefaId, [FromForm] ConcluirTarefaForm form, CancellationToken ct) =>
+        service.ConcluirAsync(empresaId, tarefaId, new ConcluirTarefaCommand(
+            form.Mensagem, form.PastaId, form.Competencia, form.DataVencimento, Arquivos(form.Arquivos)), ct);
+
+    /// <summary>Tarefas criadas a partir de uma solicitação do cliente.</summary>
+    [HttpGet("empresas/{empresaId:guid}/solicitacoes/{solicitacaoId:guid}/tarefas")]
+    [ProducesResponseType(typeof(IReadOnlyList<TarefaResumoDto>), StatusCodes.Status200OK)]
+    public Task<IReadOnlyList<TarefaResumoDto>> ListarDaSolicitacao(Guid empresaId, Guid solicitacaoId, CancellationToken ct) =>
+        service.ListarDaSolicitacaoAsync(empresaId, solicitacaoId, ct);
+
     [HttpGet("empresas/{empresaId:guid}/tarefas/{tarefaId:guid}/anexos/{anexoId:guid}/download")]
     [Produces("application/octet-stream", "application/json")]
     [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
@@ -85,4 +103,14 @@ public sealed class CriarTarefaForm
     public DateOnly? PrazoInterno { get; set; }
     public DateOnly? PrazoLegal { get; set; }
     public List<IFormFile>? Anexos { get; set; }
+    public Guid? SolicitacaoId { get; set; }
+}
+
+public sealed class ConcluirTarefaForm
+{
+    public string? Mensagem { get; set; }
+    public Guid? PastaId { get; set; }
+    public DateOnly? Competencia { get; set; }
+    public DateOnly? DataVencimento { get; set; }
+    public List<IFormFile>? Arquivos { get; set; }
 }

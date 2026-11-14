@@ -40,6 +40,7 @@ public sealed class SolicitacaoService(
     IDateTimeProvider clock,
     INotificador notificador,
     INotificacaoRepository destinatarios,
+    Equipe.IEquipeRepository equipe,
     IValidator<AbrirSolicitacaoCommand> abrirValidator,
     IValidator<ComentarSolicitacaoCommand> comentarValidator,
     ILogger<SolicitacaoService> logger) : ISolicitacaoService
@@ -94,11 +95,18 @@ public sealed class SolicitacaoService(
         };
         var abertura = solicitacao.RegistrarAbertura(agora, Hoje.AddDays(tipo.PrazoDias));
 
+        // Atribuição automática ao responsável da empresa no departamento (CTX-26).
+        var responsavel = await equipe.ObterResponsavelAtivoAsync(empresaId, solicitacao.Departamento, ct);
+        if (responsavel is { } r) solicitacao.Atribuir(r.Id, r.Nome, solicitacao.Prazo, usuarioId, agora);
+
         await SalvarComAnexosAsync(solicitacao, abertura, command.Anexos, async () =>
         {
             await solicitacoes.AddAsync(solicitacao, ct);
+            // Com responsável definido, só ele é avisado; sem responsável, toda a equipe do escritório.
             var alvo = currentUser.EhCliente
-                ? await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct)
+                ? (solicitacao.ResponsavelId is { } resp
+                    ? await destinatarios.ListarPorIdsAsync(empresa.TenantId, [resp], ct)
+                    : await destinatarios.ListarEquipeDoEscritorioAsync(empresa.TenantId, ct))
                 : await destinatarios.ListarClientesDaEmpresaAsync(empresa.TenantId, empresaId, ModuloPortal.Solicitacoes, ct);
             await NotificarAsync(solicitacao, alvo, TipoNotificacao.NovaSolicitacao,
                 $"Nova solicitação #{solicitacao.Numero}: {solicitacao.Assunto}",

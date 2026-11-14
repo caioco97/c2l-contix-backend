@@ -16,3 +16,11 @@ public enum TipoInteracaoTarefa
     MudancaStatus = 3,
     Edicao = 4
 }
+
+/// <summary>Periodicidade de uma obrigação recorrente.</summary>
+public enum PeriodicidadeObrigacao
+{
+    Mensal = 1,
+    Trimestral = 2,
+    Anual = 3
+}

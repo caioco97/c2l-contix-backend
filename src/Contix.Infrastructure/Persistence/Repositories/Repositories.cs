@@ -86,6 +86,8 @@ public sealed class UsuarioRepository(ContixDbContext context) : Repository<Usua
         if (filtro.Perfil is { } perfil) q = q.Where(u => u.Perfil == perfil);
         if (filtro.Ativo is { } ativo) q = q.Where(u => u.Ativo == ativo);
         if (filtro.EmpresaId is { } empresaId) q = q.Where(u => u.Empresas.Any(e => e.EmpresaId == empresaId));
+        if (filtro.Escritorio == true) q = q.Where(u => u.Perfil != PerfilUsuario.Cliente);
+        if (filtro.Departamento is { } departamento) q = q.Where(u => u.Departamentos.Contains(departamento));
 
         q = (filtro.OrderBy?.ToLowerInvariant(), filtro.Desc) switch
         {
@@ -223,6 +225,9 @@ public sealed class DocumentoRepository(ContixDbContext context) : Repository<Do
     public Task<DocumentoDto?> ObterDtoAsync(Guid empresaId, Guid documentoId, Guid usuarioId, CancellationToken ct = default) =>
         Projetar(Set.AsNoTracking().Where(d => d.EmpresaId == empresaId && d.Id == documentoId), usuarioId)
             .FirstOrDefaultAsync(ct);
+
+    public async Task<IReadOnlyList<DocumentoDto>> ListarDtosAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, Guid usuarioId, CancellationToken ct = default) =>
+        await Projetar(Set.AsNoTracking().Where(d => d.EmpresaId == empresaId && ids.Contains(d.Id)), usuarioId).ToListAsync(ct);
 
     public async Task<IReadOnlyList<Documento>> ListarPorIdsAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default) =>
         await Set.AsNoTracking().Where(d => d.EmpresaId == empresaId && ids.Contains(d.Id)).ToListAsync(ct);

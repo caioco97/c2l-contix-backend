@@ -47,6 +47,7 @@ public sealed class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         b.HasIndex(x => x.TenantId);
         b.Property(x => x.SenhaHash).HasMaxLength(500).IsRequired();
         b.Property(x => x.Perfil).HasConversion<string>().HasMaxLength(20);
+        b.PrimitiveCollection(x => x.Departamentos).ElementType(e => e.HasConversion<string>());
         b.HasOne(x => x.Escritorio).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
     }
 }
@@ -119,6 +120,8 @@ public sealed class DocumentoConfiguration : IEntityTypeConfiguration<Documento>
         b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.PastaId });
         b.HasIndex(x => new { x.EmpresaId, x.DataVencimento });
         b.HasIndex(x => new { x.EmpresaId, x.Competencia });
+        // Painel e relatórios filtram por período de publicação.
+        b.HasIndex(x => new { x.TenantId, x.PublicadoEm });
         b.Property(x => x.Origem).HasConversion<string>().HasMaxLength(20);
     }
 }
@@ -185,6 +188,8 @@ public sealed class SolicitacaoConfiguration : IEntityTypeConfiguration<Solicita
         b.HasIndex(x => new { x.TenantId, x.Numero }).IsUnique();
         b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Status });
         b.HasIndex(x => new { x.TenantId, x.ResponsavelId });
+        // Relatórios e painel filtram por período de abertura.
+        b.HasIndex(x => new { x.TenantId, x.CreatedAt });
     }
 }
 
@@ -238,6 +243,13 @@ public sealed class TarefaConfiguration : IEntityTypeConfiguration<Tarefa>
         b.HasIndex(x => new { x.TenantId, x.EmpresaId, x.Status });
         b.HasIndex(x => new { x.TenantId, x.ResponsavelId, x.Status });
         b.HasIndex(x => new { x.TenantId, x.PrazoInterno });
+        b.HasOne(x => x.Solicitacao).WithMany().HasForeignKey(x => x.SolicitacaoId).OnDelete(DeleteBehavior.SetNull);
+        b.HasOne(x => x.Obrigacao).WithMany().HasForeignKey(x => x.ObrigacaoId).OnDelete(DeleteBehavior.SetNull);
+        b.HasIndex(x => x.SolicitacaoId);
+        // Geração idempotente: uma tarefa por obrigação, empresa e competência (mesmo com várias instâncias da API).
+        b.HasIndex(x => new { x.ObrigacaoId, x.EmpresaId, x.Competencia }).IsUnique()
+            .HasFilter("obrigacao_id IS NOT NULL AND is_deleted = false");
+        b.PrimitiveCollection(x => x.DocumentosEntregues);
     }
 }
 

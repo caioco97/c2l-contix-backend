@@ -25,6 +25,9 @@ public class Usuario : TenantEntity
     public Escritorio? Escritorio { get; set; }
     public ICollection<UsuarioEmpresa> Empresas { get; set; } = new List<UsuarioEmpresa>();
 
+    /// <summary>Departamentos em que o colaborador atua (só para usuários do escritório).</summary>
+    public List<Departamento> Departamentos { get; set; } = [];
+
     public bool EhDoEscritorio => Perfil is PerfilUsuario.Administrador or PerfilUsuario.Colaborador;
 
     /// <summary>Convidado por e-mail e ainda sem senha definida.</summary>

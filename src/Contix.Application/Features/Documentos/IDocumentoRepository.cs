@@ -11,6 +11,7 @@ public interface IDocumentoRepository : IRepository<Documento>
     Task<PagedResult<DocumentoDto>> PesquisarAsync(Guid empresaId, DocumentoFiltro filtro, Guid usuarioId,
         IReadOnlyCollection<Guid>? pastasPermitidas = null, CancellationToken ct = default);
     Task<DocumentoDto?> ObterDtoAsync(Guid empresaId, Guid documentoId, Guid usuarioId, CancellationToken ct = default);
+    Task<IReadOnlyList<DocumentoDto>> ListarDtosAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, Guid usuarioId, CancellationToken ct = default);
     Task<IReadOnlyList<Documento>> ListarPorIdsAsync(Guid empresaId, IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
     Task<IReadOnlyList<VencimentoDto>> ListarVencimentosAsync(Guid empresaId, DateOnly inicio, DateOnly fim, Guid usuarioId,
         IReadOnlyCollection<Guid>? pastasPermitidas = null, CancellationToken ct = default);

@@ -41,6 +41,17 @@ public class Tarefa : TenantEntity
     public StatusTarefa Status { get; private set; } = StatusTarefa.Pendente;
     public DateTime? ConcluidaEm { get; private set; }
 
+    /// <summary>Solicitação do cliente que originou a tarefa (opcional).</summary>
+    public Guid? SolicitacaoId { get; private set; }
+    public Solicitacao? Solicitacao { get; set; }
+    /// <summary>Obrigação recorrente que gerou a tarefa (opcional), com a competência correspondente.</summary>
+    public Guid? ObrigacaoId { get; private set; }
+    public ObrigacaoRecorrente? Obrigacao { get; set; }
+    /// <summary>Competência (primeiro dia do mês) da obrigação.</summary>
+    public DateOnly? Competencia { get; private set; }
+    /// <summary>Documentos publicados na pasta da empresa ao concluir a tarefa (entrega ao cliente).</summary>
+    public List<Guid> DocumentosEntregues { get; private set; } = [];
+
     public ICollection<TarefaInteracao> Interacoes { get; set; } = new List<TarefaInteracao>();
     public ICollection<TarefaAnexo> Anexos { get; set; } = new List<TarefaAnexo>();
 
@@ -92,6 +103,28 @@ public class Tarefa : TenantEntity
             AutorId = autorId, Tipo = TipoInteracaoTarefa.Edicao,
             Mensagem = "Alterou " + string.Join("; ", mudancas) + "."
         }, agora);
+    }
+
+    /// <summary>Mantém o vínculo com a solicitação do cliente que originou a tarefa.</summary>
+    public void VincularSolicitacao(Guid solicitacaoId)
+    {
+        if (SolicitacaoId is not null && SolicitacaoId != solicitacaoId)
+            throw new DomainException("A tarefa já está vinculada a outra solicitação.");
+        SolicitacaoId = solicitacaoId;
+    }
+
+    /// <summary>Marca a tarefa como gerada por uma obrigação recorrente na competência.</summary>
+    public void VincularObrigacao(Guid obrigacaoId, DateOnly competencia)
+    {
+        ObrigacaoId = obrigacaoId;
+        Competencia = new DateOnly(competencia.Year, competencia.Month, 1);
+    }
+
+    /// <summary>Registra os documentos entregues ao cliente na conclusão.</summary>
+    public void RegistrarEntrega(IEnumerable<Guid> documentoIds)
+    {
+        foreach (var id in documentoIds)
+            if (!DocumentosEntregues.Contains(id)) DocumentosEntregues.Add(id);
     }
 
     public TarefaInteracao Comentar(Guid autorId, string? mensagem, bool possuiAnexos, DateTime agora)
