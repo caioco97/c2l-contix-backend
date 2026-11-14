@@ -12,6 +12,9 @@ public sealed record EsqueciSenhaRequest(string Email);
 
 public sealed record RedefinirSenhaRequest(string Token, string NovaSenha);
 
+/// <summary>Troca de senha pelo próprio usuário logado (tela Meu perfil).</summary>
+public sealed record TrocarSenhaRequest(string SenhaAtual, string NovaSenha);
+
 /// <summary>Onboarding: cria o escritório e seu primeiro administrador.</summary>
 public sealed record RegistrarEscritorioRequest(
     string RazaoSocial,
@@ -26,15 +29,19 @@ public sealed record RegistrarEscritorioRequest(
 
 public sealed record EscritorioResumoDto(Guid Id, string Nome, string? LogoUrl);
 
+/// <param name="FotoVersao">Muda a cada troca da foto de perfil; nulo quando o usuário não tem foto.</param>
 public sealed record UsuarioAutenticadoDto(
-    Guid Id, string Nome, string Email, PerfilUsuario Perfil, EscritorioResumoDto Escritorio)
+    Guid Id, string Nome, string Email, PerfilUsuario Perfil, EscritorioResumoDto Escritorio,
+    string? Telefone = null, string? FotoVersao = null)
 {
     /// <remarks>Requer <see cref="Usuario.Escritorio"/> carregado.</remarks>
     public static UsuarioAutenticadoDto From(Usuario u)
     {
         var e = u.Escritorio ?? throw new InvalidOperationException("Escritório do usuário não carregado.");
         return new(u.Id, u.Nome, u.Email, u.Perfil,
-            new EscritorioResumoDto(e.Id, e.NomeFantasia ?? e.RazaoSocial, e.LogoUrl));
+            new EscritorioResumoDto(e.Id, e.NomeFantasia ?? e.RazaoSocial, e.LogoUrl),
+            u.Telefone,
+            u.FotoStorageKey is null || u.FotoAtualizadaEm is null ? null : u.FotoAtualizadaEm.Value.Ticks.ToString());
     }
 }
 

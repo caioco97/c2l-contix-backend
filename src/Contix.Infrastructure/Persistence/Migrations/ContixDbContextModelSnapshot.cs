@@ -2543,6 +2543,20 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("email");
 
+                    b.Property<DateTime?>("FotoAtualizadaEm")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("foto_atualizada_em");
+
+                    b.Property<string>("FotoContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("foto_content_type");
+
+                    b.Property<string>("FotoStorageKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("foto_storage_key");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
@@ -2564,6 +2578,11 @@ namespace Contix.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("senha_hash");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("telefone");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")

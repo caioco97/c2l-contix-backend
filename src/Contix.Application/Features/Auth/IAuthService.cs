@@ -9,5 +9,10 @@ public interface IAuthService
     /// <summary>Envia o link de redefinição, se o e-mail existir. Nunca revela se a conta existe.</summary>
     Task SolicitarRedefinicaoSenhaAsync(EsqueciSenhaRequest request, CancellationToken ct = default);
     Task RedefinirSenhaAsync(RedefinirSenhaRequest request, CancellationToken ct = default);
+    /// <summary>
+    /// Troca a senha do usuário logado, conferindo a senha atual. Encerra todas as sessões abertas
+    /// e devolve um novo par de tokens para a sessão que fez a troca.
+    /// </summary>
+    Task<AuthResponse> TrocarSenhaAsync(TrocarSenhaRequest request, CancellationToken ct = default);
     Task<UsuarioAutenticadoDto> ObterUsuarioAtualAsync(CancellationToken ct = default);
 }
