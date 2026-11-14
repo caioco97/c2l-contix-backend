@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
 
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<Features.MeuPerfil.IPerfilService, Features.MeuPerfil.PerfilService>();
         services.AddScoped<IEscritorioService, EscritorioService>();
         services.AddScoped<IUsuarioService, UsuarioService>();
         services.AddScoped<IConviteService, ConviteService>();

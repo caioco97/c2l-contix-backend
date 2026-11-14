@@ -59,6 +59,16 @@ public sealed class AuthController(IAuthService auth) : ApiControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Troca a senha do usuário logado (exige a senha atual). Encerra as outras sessões e
+    /// devolve um novo par de tokens para quem fez a troca.
+    /// </summary>
+    [HttpPost("trocar-senha")]
+    [EnableRateLimiting("auth")]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    public Task<AuthResponse> TrocarSenha(TrocarSenhaRequest request, CancellationToken ct) => auth.TrocarSenhaAsync(request, ct);
+
     /// <summary>Onboarding: cria um escritório contábil e o usuário administrador.</summary>
     [HttpPost("registrar")]
     [AllowAnonymous]

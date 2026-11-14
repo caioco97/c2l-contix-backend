@@ -46,3 +46,14 @@ public sealed class RedefinirSenhaRequestValidator : AbstractValidator<Redefinir
         RuleFor(x => x.NovaSenha).Senha();
     }
 }
+
+public sealed class TrocarSenhaRequestValidator : AbstractValidator<TrocarSenhaRequest>
+{
+    public TrocarSenhaRequestValidator()
+    {
+        RuleFor(x => x.SenhaAtual).NotEmpty().WithMessage("Informe a senha atual.");
+        RuleFor(x => x.NovaSenha).Senha();
+        RuleFor(x => x.NovaSenha).NotEqual(x => x.SenhaAtual).WithMessage("A nova senha deve ser diferente da atual.")
+            .When(x => !string.IsNullOrEmpty(x.SenhaAtual));
+    }
+}

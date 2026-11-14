@@ -12,6 +12,11 @@ public class Usuario : TenantEntity
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
     public string SenhaHash { get; set; } = null!;
+    public string? Telefone { get; set; }
+    /// <summary>Foto de perfil no armazenamento de arquivos; nula quando o usuário não enviou foto.</summary>
+    public string? FotoStorageKey { get; set; }
+    public string? FotoContentType { get; set; }
+    public DateTime? FotoAtualizadaEm { get; set; }
     public PerfilUsuario Perfil { get; set; }
     public bool Ativo { get; set; } = true;
     public int TentativasLoginFalhas { get; private set; }
@@ -57,6 +62,14 @@ public class Usuario : TenantEntity
     {
         SenhaHash = novoHash;
         if (ConviteEnviadoEm is not null) ConviteAceitoEm ??= agora;
+        TentativasLoginFalhas = 0;
+        BloqueadoAte = null;
+    }
+
+    /// <summary>Troca a senha a partir da tela de perfil (o usuário já informou a senha atual).</summary>
+    public void TrocarSenha(string novoHash)
+    {
+        SenhaHash = novoHash;
         TentativasLoginFalhas = 0;
         BloqueadoAte = null;
     }

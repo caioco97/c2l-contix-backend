@@ -46,6 +46,9 @@ public sealed class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         b.HasIndex(x => x.Email).IsUnique();
         b.HasIndex(x => x.TenantId);
         b.Property(x => x.SenhaHash).HasMaxLength(500).IsRequired();
+        b.Property(x => x.Telefone).HasMaxLength(30);
+        b.Property(x => x.FotoStorageKey).HasMaxLength(500);
+        b.Property(x => x.FotoContentType).HasMaxLength(100);
         b.Property(x => x.Perfil).HasConversion<string>().HasMaxLength(20);
         b.PrimitiveCollection(x => x.Departamentos).ElementType(e => e.HasConversion<string>());
         b.HasOne(x => x.Escritorio).WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);

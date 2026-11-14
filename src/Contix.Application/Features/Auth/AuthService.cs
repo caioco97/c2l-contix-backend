@@ -211,6 +211,34 @@ public sealed class AuthService(
         logger.LogInformation("Senha redefinida para o usuário {UsuarioId}", usuario.Id);
     }
 
+    public async Task<AuthResponse> TrocarSenhaAsync(TrocarSenhaRequest request, CancellationToken ct = default)
+    {
+        var agora = clock.UtcNow;
+        var usuario = await usuarios.GetByIdIgnorandoTenantAsync(currentUser.RequireUserId(), ct);
+        if (usuario is null || !usuario.Ativo) throw new UnauthorizedException();
+
+        if (!passwordHasher.Verify(usuario.SenhaHash, request.SenhaAtual))
+        {
+            logger.LogWarning("Troca de senha com senha atual incorreta para o usuário {UsuarioId}", usuario.Id);
+            throw new FluentValidation.ValidationException([new(nameof(TrocarSenhaRequest.SenhaAtual), "Senha atual incorreta.")]);
+        }
+
+        usuario.TrocarSenha(passwordHasher.Hash(request.NovaSenha));
+
+        // Encerra as outras sessões (inclusive aparelhos) e abre uma nova para quem trocou a senha.
+        foreach (var t in await refreshTokens.ListarAtivosDoUsuarioAsync(usuario.Id, agora, ct))
+            t.Revogar(agora, "Senha trocada pelo usuário");
+        foreach (var token in await tokensRedefinicao.ListarValidosDoUsuarioAsync(usuario.Id, agora, ct))
+            token.Invalidar(agora);
+        foreach (var dispositivo in await dispositivos.ListarDoUsuarioAsync(usuario.Id, ct))
+            dispositivos.Remove(dispositivo);
+
+        var response = await EmitirTokensAsync(usuario, Guid.NewGuid(), ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        logger.LogInformation("Senha trocada pelo usuário {UsuarioId}", usuario.Id);
+        return response;
+    }
+
     /// <summary>Usuário do cliente só entra enquanto tiver ao menos uma empresa não excluída.</summary>
     private async Task<bool> PodeEntrarAsync(Usuario usuario, CancellationToken ct) =>
         usuario.Perfil != PerfilUsuario.Cliente || await usuarios.PossuiEmpresaAtivaIgnorandoTenantAsync(usuario.Id, ct);
